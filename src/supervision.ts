@@ -52,7 +52,7 @@ export async function* supervise(
   const start = performance.now();
   let lastActivity = start;
   let nextHeartbeat = config.heartbeatMs === undefined ? Infinity : start + config.heartbeatMs;
-  let pending = providerNext(iterator);
+  let pending: Promise<Pending> | undefined;
   let onAbort: (() => void) | undefined;
   const aborted = new Promise<{ kind: "abort" }>(resolve => {
     onAbort = () => resolve({ kind: "abort" });
@@ -63,6 +63,8 @@ export async function* supervise(
   try {
     while (true) {
       if (signal.aborted) return;
+      // Read only when the consumer requests the next event; no eager read-ahead.
+      pending ??= providerNext(iterator);
       const now = performance.now();
       if (config.totalMs !== undefined && now - start >= config.totalMs) {
         throw new ExecutionTimeoutError("EXECUTION_TIMEOUT");
@@ -98,7 +100,7 @@ export async function* supervise(
         return;
       }
       lastActivity = performance.now();
-      pending = providerNext(iterator);
+      pending = undefined;
       yield { kind: "provider", value: event.result.value };
     }
   } finally {
