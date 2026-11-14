@@ -1,11 +1,22 @@
 # Implementation status
 
-## First foundation slice
+## Foundation (PR #3)
 
-Implements canonical schema v1.0 **execution section**, validation, explicit plugin instance registry, single-request generation dispatch, config merging, result statuses, abort propagation, and opt-in diagnostic events. Conformance-style tests use a fake adapter; no real provider adapter has been implemented.
+Canonical execution-card schema v1.0, validation, explicit plugin registration with multiple instances, configuration layering, normalized execution statuses, abort propagation, and optional diagnostics. Tests use fake adapters.
+
+## Streaming execution (this PR)
+
+- `stream()` produces `started`, text delta, structured tool call, progress and exactly one terminal event.
+- `generate()` consumes the same execution/event path and returns the terminal result.
+- A plugin may implement `stream()`; existing execute-only plugins are adapted to the same event contract.
+- Provider stream completion is validated before publishing successful terminal status. Missing completion, post-completion events and exceptions fail the execution.
+- Request cancellation is propagated to the provider, and abandoning an iterator aborts the plugin signal. Cancellation is best effort; a provider ignoring abort can still hold a pending operation.
+- Structured tool calls are forwarded to the host but never executed by ArcanAI.
+- No unbounded internal diagnostic event queue for streaming data: output is yielded to the consumer; a terminal `generate()` necessarily collects output.
+- Added focused conformance tests for these conditions.
 
 ## Not implemented yet
 
-Native provider adapters, streaming event contract, plugin lifecycle start/stop, timeouts and heartbeat supervision, concurrency control/backpressure, contract-version negotiation and semver checking, provider option schemas/conflict handling, security redaction for arbitrary plugin logs, host policy ceilings, model-card file scanning, published package bundles, and integration with existing BML cards.
+Real provider adapters; timeout enforcement or heartbeat supervision; plugin lifecycle start/stop coordination; process supervision; concurrency limits; contract negotiation; provider option schemas/conflict validation; comprehensive sensitive-data redaction; host policy ceilings; file-based model card discovery; published packages; and BML migration.
 
-This is an initial code slice, not a claim that the complete designs in ARCHITECTURE.md and CONTRACTS.md are implemented. Never expose unredacted plugin-provided diagnostic data in production environments; the first slice has no automatic sensitive-data redactor.
+The architecture and contracts documents include proposed future interfaces. They are **not implemented guarantees**. Never enable verbose plugin logs with sensitive data in production: the current version does not redact arbitrary plugin-supplied diagnostic payloads.
