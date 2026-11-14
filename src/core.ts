@@ -133,6 +133,7 @@ export class ArcanAI {
         : executeAsStream(instance.plugin.execute!.bind(instance.plugin), pluginRequest, context);
 
       const parts: string[] = [];
+      const reasoning: string[] = [];
       const calls: ToolCall[] = [];
       let completion: Extract<PluginStreamEvent, { type: "completed" }> | undefined;
       for await (const observed of supervise(run, signal, timers)) {
@@ -147,6 +148,10 @@ export class ArcanAI {
           case "text-delta":
             parts.push(part.text);
             yield { type: "text-delta", executionId, text: part.text };
+            break;
+          case "reasoning-delta":
+            reasoning.push(part.text);
+            yield { type: "reasoning-delta", executionId, text: part.text };
             break;
           case "tool-call":
             calls.push(part.toolCall);
@@ -176,6 +181,7 @@ export class ArcanAI {
         type: "completed", executionId,
         result: {
           executionId, status: "success", text: parts.join(""),
+          ...(reasoning.length ? { reasoning: reasoning.join("") } : {}),
           finishReason: completion.finishReason, usage: completion.usage,
           providerMetadata: completion.providerMetadata,
           ...(calls.length ? { toolCalls: calls } : {}),
@@ -189,9 +195,10 @@ export class ArcanAI {
         yield { type: "failed", executionId, result: fail("timeout", error.reason, error.message) };
       } else {
         const message = error instanceof Error ? error.message : "plugin execution failed";
+        const providerCode = error instanceof Error && "code" in error && typeof error.code === "string" && /^[A-Z][A-Z0-9_]{0,63}$/.test(error.code) ? error.code : "PLUGIN_ERROR";
         const result = signal.aborted
           ? fail("cancelled", "CANCELLED", "request cancelled")
-          : fail("error", "PLUGIN_ERROR", message);
+          : fail("error", providerCode, message);
         yield { type: "failed", executionId, result };
       }
     } finally {
