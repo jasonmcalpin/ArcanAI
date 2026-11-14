@@ -56,9 +56,24 @@ export interface PluginExecutionResult {
   providerMetadata?: JsonRecord;
 }
 
+export interface ToolCall {
+  id: string;
+  name: string;
+  arguments: JsonRecord;
+}
+
+/** A streaming provider must emit exactly one completed event as its final event. */
+export type PluginStreamEvent =
+  | { type: "text-delta"; text: string }
+  | { type: "tool-call"; toolCall: ToolCall }
+  | { type: "progress"; message?: string }
+  | { type: "completed"; finishReason?: string; usage?: PluginExecutionResult["usage"]; providerMetadata?: JsonRecord };
+
+/** Legacy execute-only plugins are adapted to the same public stream contract. */
 export interface ModelPlugin {
   readonly id: string;
-  execute(request: PluginExecutionRequest, context: PluginExecutionContext): Promise<PluginExecutionResult>;
+  execute?(request: PluginExecutionRequest, context: PluginExecutionContext): Promise<PluginExecutionResult>;
+  stream?(request: PluginExecutionRequest, context: PluginExecutionContext): AsyncIterable<PluginStreamEvent>;
   start?(): Promise<void>;
   stop?(): Promise<void>;
 }
@@ -92,6 +107,16 @@ export interface GenerateResult {
   finishReason?: string;
   usage?: PluginExecutionResult["usage"];
   providerMetadata?: JsonRecord;
+  toolCalls?: ToolCall[];
   error?: { code: string; message: string };
   diagnostics?: DiagnosticEvent[];
 }
+
+/** Public stream events. A terminal event contains the authoritative final result. */
+export type ExecutionEvent =
+  | { type: "started"; executionId: string; instance: string; model: string }
+  | { type: "text-delta"; executionId: string; text: string }
+  | { type: "tool-call"; executionId: string; toolCall: ToolCall }
+  | { type: "progress"; executionId: string; message?: string }
+  | { type: "completed"; executionId: string; result: GenerateResult }
+  | { type: "failed"; executionId: string; result: GenerateResult };
