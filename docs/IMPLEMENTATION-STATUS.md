@@ -15,6 +15,17 @@ Canonical execution-card schema v1.0, validation, explicit plugin registration w
 - No unbounded internal diagnostic event queue for streaming data: output is yielded to the consumer; a terminal `generate()` necessarily collects output.
 - Added focused conformance tests for these conditions.
 
+## Execution supervision (this PR)
+
+- Per-request `heartbeatMs`, `idleMs`, and `totalMs` settings. Heartbeats are emitted while waiting for provider events, without issuing concurrent reads or pretending the model made progress.
+- Idle deadline is reset only by provider events; supervisor heartbeats do not reset it. Total deadline is independent of progress.
+- Caller cancellation can interrupt a silent provider wait at the ArcanAI boundary; deadlines abort the request signal and report `timeout`. Provider-side cancellation remains best effort.
+- Provider iterator close is requested without blocking terminal failure reporting if a provider ignores cancellation.
+- Default: heartbeat every 5 seconds; no automatic idle or total cutoff. No background compatibility checks.
+- Focused tests cover quiet provider heartbeats, idle timeout, total timeout under progress, cancellation of silent requests and invalid timer configuration.
+
+These timers supervise JavaScript async work. A frozen in-process event loop cannot send heartbeats or enforce deadlines; process isolation is not promised.
+
 ## Not implemented yet
 
 Real provider adapters; timeout enforcement or heartbeat supervision; plugin lifecycle start/stop coordination; process supervision; concurrency limits; contract negotiation; provider option schemas/conflict validation; comprehensive sensitive-data redaction; host policy ceilings; file-based model card discovery; published packages; and BML migration.
