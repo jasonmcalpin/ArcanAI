@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import { parseModelCard, validateOptions, validateProviderOptions } from "./cards.js";
 import { ExecutionTimeoutError, supervise, validateTimers } from "./supervision.js";
 import type {
@@ -54,7 +53,7 @@ export class ArcanAI {
   }
 
   async *stream(request: GenerateRequest): AsyncIterable<ExecutionEvent> {
-    const executionId = randomUUID();
+    const executionId = crypto.randomUUID();
     const card = parseModelCard(request.card);
     const timers = validateTimers(request.timers);
     const diagnostics: DiagnosticEvent[] = [];
