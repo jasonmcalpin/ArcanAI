@@ -26,6 +26,15 @@ Canonical execution-card schema v1.0, validation, explicit plugin registration w
 
 These timers supervise JavaScript async work. A frozen in-process event loop cannot send heartbeats or enforce deadlines; process isolation is not promised.
 
+## Ollama provider integration (this PR)
+
+- Introduces a separately built `plugins/ollama` workspace, with a plugin factory and no imports of host-specific BML/Aether code.
+- Uses Ollama's documented `POST /api/chat` streaming NDJSON protocol, including tool calls, reasoning, usage, and terminal status.
+- Maps common `temperature`, `topP`, and `maxTokens` to Ollama options. Passes provider-specific settings to Ollama after checking reserved/conflicting fields.
+- Rejects messages that cannot be accurately translated instead of silently flattening them.
+- Uses injected `fetch` to contract-test protocol behavior, fragmented UTF-8/JSON lines, HTTP failures, and no implicit retries without connecting to a real Ollama server.
+- Workspaces remain private/unpublished until versioning, publishing and package contract guarantees are reviewed.
+
 ## Not implemented yet
 
 Real provider adapters; timeout enforcement or heartbeat supervision; plugin lifecycle start/stop coordination; process supervision; concurrency limits; contract negotiation; provider option schemas/conflict validation; comprehensive sensitive-data redaction; host policy ceilings; file-based model card discovery; published packages; and BML migration.
