@@ -65,6 +65,7 @@ export interface ToolCall {
 /** A streaming provider must emit exactly one completed event as its final event. */
 export type PluginStreamEvent =
   | { type: "text-delta"; text: string }
+  | { type: "reasoning-delta"; text: string }
   | { type: "tool-call"; toolCall: ToolCall }
   | { type: "progress"; message?: string }
   | { type: "completed"; finishReason?: string; usage?: PluginExecutionResult["usage"]; providerMetadata?: JsonRecord };
@@ -106,6 +107,7 @@ export interface GenerateResult {
   status: ExecutionStatus;
   executionId: string;
   text?: string;
+  reasoning?: string;
   finishReason?: string;
   usage?: PluginExecutionResult["usage"];
   providerMetadata?: JsonRecord;
@@ -118,6 +120,7 @@ export interface GenerateResult {
 export type ExecutionEvent =
   | { type: "started"; executionId: string; instance: string; model: string }
   | { type: "text-delta"; executionId: string; text: string }
+  | { type: "reasoning-delta"; executionId: string; text: string }
   | { type: "tool-call"; executionId: string; toolCall: ToolCall }
   | { type: "progress"; executionId: string; message?: string }
   | { type: "heartbeat"; executionId: string; elapsedMs: number; idleMs: number }
