@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { parseModelCard, validateOptions, validateProviderOptions } from "./cards.js";
+import { ExecutionTimeoutError, supervise, validateTimers } from "./supervision.js";
 import type {
   DiagnosticEvent, DiagnosticLevel, ExecutionEvent, GenerateRequest, GenerateResult,
   GenerationOptions, JsonRecord, Message, PluginExecutionContext, PluginInstance,
@@ -55,6 +56,7 @@ export class ArcanAI {
   async *stream(request: GenerateRequest): AsyncIterable<ExecutionEvent> {
     const executionId = randomUUID();
     const card = parseModelCard(request.card);
+    const timers = validateTimers(request.timers);
     const diagnostics: DiagnosticEvent[] = [];
     const requestedLevel = request.diagnostics ?? "off";
     if (!LEVELS.includes(requestedLevel)) throw new TypeError("invalid diagnostic level");
@@ -133,8 +135,13 @@ export class ArcanAI {
       const parts: string[] = [];
       const calls: ToolCall[] = [];
       let completion: Extract<PluginStreamEvent, { type: "completed" }> | undefined;
-      for await (const part of run) {
+      for await (const observed of supervise(run, signal, timers)) {
         if (signal.aborted) break;
+        if (observed.kind === "heartbeat") {
+          yield { type: "heartbeat", executionId, elapsedMs: observed.elapsedMs, idleMs: observed.idleMs };
+          continue;
+        }
+        const part = observed.value;
         if (completion) throw new Error("plugin emitted an event after completion");
         switch (part.type) {
           case "text-delta":
@@ -177,11 +184,16 @@ export class ArcanAI {
       };
     } catch (error) {
       completed = true;
-      const message = error instanceof Error ? error.message : "plugin execution failed";
-      const result = signal.aborted
-        ? fail("cancelled", "CANCELLED", "request cancelled")
-        : fail("error", "PLUGIN_ERROR", message);
-      yield { type: "failed", executionId, result };
+      if (error instanceof ExecutionTimeoutError) {
+        controller.abort(error);
+        yield { type: "failed", executionId, result: fail("timeout", error.reason, error.message) };
+      } else {
+        const message = error instanceof Error ? error.message : "plugin execution failed";
+        const result = signal.aborted
+          ? fail("cancelled", "CANCELLED", "request cancelled")
+          : fail("error", "PLUGIN_ERROR", message);
+        yield { type: "failed", executionId, result };
+      }
     } finally {
       if (!completed) controller.abort(new Error("stream consumer closed"));
       request.signal?.removeEventListener("abort", abort);
