@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "1.0",
+  "id": "qwen3-8b-local",
+  "execution": {
+    "plugin": "@arcanai/plugin-ollama",
+    "instance": "mini-server",
+    "model": "qwen3:8b",
+    "options": {
+      "temperature": 0.7,
+      "maxTokens": 512
+    },
+    "providerOptions": {
+      "num_ctx": 8192
+    }
+  }
+}

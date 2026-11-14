@@ -35,6 +35,13 @@ These timers supervise JavaScript async work. A frozen in-process event loop can
 - Uses injected `fetch` to contract-test protocol behavior, fragmented UTF-8/JSON lines, HTTP failures, and no implicit retries without connecting to a real Ollama server.
 - Workspaces remain private/unpublished until versioning, publishing and package contract guarantees are reviewed.
 
+## Browser-neutral core and Node card catalog (this PR)
+
+- Replaces Node-only UUID import with Web Crypto in core, allowing the same execution contract to be used in browsers and Node 22.
+- Adds explicit single-directory model-card scanning through a separate `arcanai/node/cards` subpath. Browser consumers use `parseModelCard()` and their own asset loader.
+- Scanning ignores symlinks and unrelated files, validates each card, rejects duplicate IDs, and performs no plugin registration or installation.
+- Includes a declarative Ollama card example and tests for catalog behavior.
+
 ## Not implemented yet
 
 Real provider adapters; timeout enforcement or heartbeat supervision; plugin lifecycle start/stop coordination; process supervision; concurrency limits; contract negotiation; provider option schemas/conflict validation; comprehensive sensitive-data redaction; host policy ceilings; file-based model card discovery; published packages; and BML migration.
