@@ -22,8 +22,9 @@ test("heartbeat reports supervisor liveness without claiming provider progress",
   const events = [];
   for await (const event of runtime.stream({ card, messages: [], timers: { heartbeatMs: 15 } })) events.push(event);
   assert.ok(events.some(event => event.type === "heartbeat" && event.elapsedMs >= 10));
-  assert.equal(events.at(-1)?.type, "completed");
-  assert.equal(events.at(-1)?.type === "completed" && events.at(-1)?.result.text, "done");
+  const terminal = events.at(-1);
+  assert.equal(terminal?.type, "completed");
+  assert.equal(terminal?.type === "completed" && terminal.result.text, "done");
 });
 
 test("idle deadline reports timeout and aborts plugin signal", async () => {
