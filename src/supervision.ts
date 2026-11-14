@@ -105,7 +105,7 @@ export async function* supervise(
     if (onAbort) signal.removeEventListener("abort", onAbort);
     if (!naturallyFinished) {
       // Do not block failure handling waiting on a hung iterator's return().
-      try { void iterator.return?.().catch(() => {}); } catch { /* best-effort cleanup */ }
+      try { void Promise.resolve(iterator.return?.()).catch(() => {}); } catch { /* best-effort cleanup */ }
     }
   }
 }
