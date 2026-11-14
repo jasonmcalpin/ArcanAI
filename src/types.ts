@@ -95,6 +95,8 @@ export interface GenerateRequest {
   providerOptions?: JsonRecord;
   diagnostics?: DiagnosticLevel;
   signal?: AbortSignal;
+  /** Wall-clock liveness controls; omitted deadlines are disabled. */
+  timers?: { heartbeatMs?: number; idleMs?: number; totalMs?: number };
   onDiagnostic?: (event: DiagnosticEvent) => void;
 }
 
@@ -118,5 +120,6 @@ export type ExecutionEvent =
   | { type: "text-delta"; executionId: string; text: string }
   | { type: "tool-call"; executionId: string; toolCall: ToolCall }
   | { type: "progress"; executionId: string; message?: string }
+  | { type: "heartbeat"; executionId: string; elapsedMs: number; idleMs: number }
   | { type: "completed"; executionId: string; result: GenerateResult }
   | { type: "failed"; executionId: string; result: GenerateResult };
