@@ -17,7 +17,7 @@ The repository's `AGENTS.md` contains ArcanAI-specific contracts and must **not*
 Run from the repository root:
 
 ```sh
-./scripts/update-codex-skills.sh
+sh scripts/update-codex-skills.sh
 git diff -- .agents/skills
 ```
 
