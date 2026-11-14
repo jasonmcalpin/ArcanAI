@@ -132,10 +132,10 @@ export class ArcanAI {
 
       const parts: string[] = [];
       const calls: ToolCall[] = [];
-      let sawCompletion = false;
+      let completion: Extract<PluginStreamEvent, { type: "completed" }> | undefined;
       for await (const part of run) {
         if (signal.aborted) break;
-        if (sawCompletion) throw new Error("plugin emitted an event after completion");
+        if (completion) throw new Error("plugin emitted an event after completion");
         switch (part.type) {
           case "text-delta":
             parts.push(part.text);
@@ -148,34 +148,33 @@ export class ArcanAI {
           case "progress":
             yield { type: "progress", executionId, message: part.message };
             break;
-          case "completed": {
-            sawCompletion = true;
-            if (signal.aborted) break;
-            log("info", "arcanai", "request completed");
-            completed = true;
-            yield {
-              type: "completed", executionId,
-              result: {
-                executionId, status: "success", text: parts.join(""),
-                finishReason: part.finishReason, usage: part.usage,
-                providerMetadata: part.providerMetadata,
-                ...(calls.length ? { toolCalls: calls } : {}),
-                ...(level !== "off" ? { diagnostics } : {})
-              }
-            };
+          case "completed":
+            completion = part;
             break;
-          }
           default:
             throw new Error("plugin emitted unsupported event");
         }
       }
-      if (!completed) {
+      if (signal.aborted || !completion) {
         completed = true;
         const result = signal.aborted
           ? fail("cancelled", "CANCELLED", "request cancelled")
           : fail("error", "STREAM_INCOMPLETE", "plugin stream ended without a completion event");
         yield { type: "failed", executionId, result };
+        return;
       }
+      log("info", "arcanai", "request completed");
+      completed = true;
+      yield {
+        type: "completed", executionId,
+        result: {
+          executionId, status: "success", text: parts.join(""),
+          finishReason: completion.finishReason, usage: completion.usage,
+          providerMetadata: completion.providerMetadata,
+          ...(calls.length ? { toolCalls: calls } : {}),
+          ...(level !== "off" ? { diagnostics } : {})
+        }
+      };
     } catch (error) {
       completed = true;
       const message = error instanceof Error ? error.message : "plugin execution failed";
