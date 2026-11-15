@@ -29,6 +29,8 @@ export interface ExecutionCard {
     model: string;
     options?: GenerationOptions;
     providerOptions?: JsonRecord;
+    /** Declarative plugin-owned model loader settings, never executable code. */
+    runtime?: JsonRecord;
   };
 }
 
