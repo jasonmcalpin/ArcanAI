@@ -154,9 +154,11 @@ test("non-assistant tool call history is rejected", async () => {
     endpoint: "http://localhost:11434",
     fetch: async () => responseLines({ done: true })
   }) });
-  await assert.rejects(runtime.generate({ card, messages: [
+  const result = await runtime.generate({ card, messages: [
     { role: "user", content: "tool", toolCalls: [
       { id: "bad", name: "shell", arguments: { command: "ls" } }
     ] }
-  ] }), /toolCalls must be nonempty structured assistant tool calls/);
+  ] });
+  assert.equal(result.status, "error");
+  assert.match(result.error.message, /toolCalls must be nonempty structured assistant tool calls/);
 });
