@@ -168,3 +168,4 @@ export type { LoadedTransformersInstance, LoadedTransformersRuntime, Transformer
 export { prepareModelInvocation, prepareVisionInvocation, parseModelOutput } from "./protocol.js";
 export type { ModelProfile, ProfileCandidate, ProfileRequest, ProfileMessage,
   PreparedModelInvocation, PreparedVisionInvocation, ParsedTurn } from "./protocol-types.js";
+export { prepareModelInvocationFromCard, prepareVisionInvocationFromCard, parseModelOutputFromCard } from "./protocol.js";

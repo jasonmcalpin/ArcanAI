@@ -1,3 +1,4 @@
+import type { ExecutionCard, JsonRecord } from "arcanai";
 import type { GenerationProfile, GenerationSettings, ModelProfile, ProfileCandidate,
   ProfileMessage, ModelToolDefinition, ProfileRequest, PreparedModelInvocation,
   PreparedVisionInvocation, ParsedTurn } from "./protocol-types.js";
@@ -187,4 +188,41 @@ export function parseModelOutput(candidate: ProfileCandidate, raw: string): {
   if (tagged) { try { taggedValue = JSON.parse(tagged); } catch { taggedValue = undefined; } }
   const turn = parserTurn ?? normalizedTurn(taggedValue) ?? normalizedTurn(jsonValue(final));
   return { final, ...(reasoningTokens === undefined ? {} : { reasoningTokens }), ...(turn ? { turn } : {}) };
+}
+
+/** Resolve an ArcanAI canonical model card into its declarative protocol.
+ * The runtime and formatting profiles are independent, nonduplicated sections.
+ */
+function candidateFromCard(card: ExecutionCard): ProfileCandidate {
+  const data = card.execution.profile;
+  const runtime = card.execution.runtime;
+  if (!data || !runtime) throw new Error("Transformers.js card requires execution.runtime and execution.profile");
+  for (const key of ["id", "family", "adapterId"]) {
+    if (typeof data[key] !== "string" || !data[key]) throw new Error(`Invalid execution.profile.${key}`);
+  }
+  for (const key of ["chat", "tools", "reasoning", "profiles"]) {
+    if (!data[key] || typeof data[key] !== "object" || Array.isArray(data[key])) {
+      throw new Error(`Invalid execution.profile.${key}`);
+    }
+  }
+  return {
+    id: card.id,
+    family: data.family as string,
+    adapterId: data.adapterId as string,
+    compatibilityProfileId: data.id as string,
+    compatibilityProfile: { ...data, runtime } as unknown as ModelProfile
+  };
+}
+
+export function prepareModelInvocationFromCard(card: ExecutionCard, request: ProfileRequest): PreparedModelInvocation {
+  return prepareModelInvocation(candidateFromCard(card), request);
+}
+export function prepareVisionInvocationFromCard(card: ExecutionCard, imageUrl: string,
+  prompt: string, maxNewTokens = 96): PreparedVisionInvocation {
+  return prepareVisionInvocation(candidateFromCard(card), imageUrl, prompt, maxNewTokens);
+}
+export function parseModelOutputFromCard(card: ExecutionCard, raw: string): {
+  readonly final: string; readonly reasoningTokens?: number; readonly turn?: ParsedTurn;
+} {
+  return parseModelOutput(candidateFromCard(card), raw);
 }

@@ -136,3 +136,11 @@ Events have `executionId`, timestamp, source, level, message and optional saniti
 Providers can impose limits on parallel requests and instances. Define and enforce a declared maximum/in-flight policy, rather than allowing a plugin to corrupt shared model state. Keep host-wide scheduling out of ArcanAI.
 
 A common conformance suite should cover: explicit registration, multiple instances, card validation/version errors, absent plugin, options passthrough/conflict, output/tool-call fidelity, stream ordering, slow consumer/abort, timeout, disconnect, late events, one terminal result, resource cleanup, and redaction. Distinguish what was tested from what is only specified.
+
+## Canonical model execution profiles
+
+For Transformers.js, the canonical ArcanAI card owns independent `execution.runtime` (model loader, revision, dtype, processor and device) and `execution.profile` (declarative chat placement, tool protocol, reasoning controls and workload settings). These are validated JSON-owned sections, not duplicate copies of the same runtime spec.
+
+`prepareModelInvocationFromCard(card, request)`, `prepareVisionInvocationFromCard(card, imageUrl, prompt, budget)` and `parseModelOutputFromCard(card, raw)` are provider-owned helpers shared by BML and Aether. They do not import benchmark fixture/scorer concepts. A host may use these helpers to construct an invocation for a chosen workload; they are not separate BML engines.
+
+BML v3 cards can be migrated into this schema without changing benchmark evidence. Existing benchmark-specific fields remain BML-owned. A card's presence never installs packages, model weights or services.
