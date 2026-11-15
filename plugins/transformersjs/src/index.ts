@@ -161,3 +161,6 @@ export function transformersJsPlugin(config: TransformersPluginConfig): ModelPlu
     }
   };
 }
+
+export { loadTransformersJsInstance } from "./runtime.js";
+export type { LoadedTransformersInstance, LoadedTransformersRuntime, TransformersLoadOptions } from "./runtime.js";
