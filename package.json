@@ -8,7 +8,8 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json && npm run build --workspace=@arcanai/plugin-ollama && npm run build --workspace=@arcanai/plugin-transformersjs",
-    "test": "npm run build && node --test dist/test/*.test.js plugins/ollama/test/*.test.mjs plugins/transformersjs/test/*.test.mjs"
+    "test": "npm run build && node --test dist/test/*.test.js plugins/ollama/test/*.test.mjs plugins/transformersjs/test/*.test.mjs test/consumer-import.test.mjs",
+    "prepare": "npm run build"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
@@ -25,7 +26,20 @@
     "./node/cards": {
       "types": "./dist/src/node/cards.d.ts",
       "default": "./dist/src/node/cards.js"
+    },
+    "./plugins/transformersjs": {
+      "types": "./plugins/transformersjs/dist/index.d.ts",
+      "default": "./plugins/transformersjs/dist/index.js"
+    },
+    "./plugins/ollama": {
+      "types": "./plugins/ollama/dist/index.d.ts",
+      "default": "./plugins/ollama/dist/index.js"
     }
   },
-  "types": "./dist/src/index.d.ts"
+  "types": "./dist/src/index.d.ts",
+  "files": [
+    "dist/src/**",
+    "plugins/transformersjs/dist/**",
+    "plugins/ollama/dist/**"
+  ]
 }
