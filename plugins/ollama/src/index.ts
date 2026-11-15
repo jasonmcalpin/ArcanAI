@@ -45,17 +45,28 @@ function makeBody(request: PluginExecutionRequest): Record<string, unknown> {
     if (message.role === "developer") {
       throw new OllamaPluginError("UNSUPPORTED_MESSAGE_ROLE", "Ollama does not support developer-role messages");
     }
-    if (message.toolCallId !== undefined) {
-      throw new OllamaPluginError("UNSUPPORTED_MESSAGE_FIELD", `messages[${index}].toolCallId cannot be translated without a tool name`);
+    if (message.toolCallId !== undefined && !message.toolName) {
+      throw new OllamaPluginError("UNSUPPORTED_MESSAGE_FIELD", `messages[${index}].toolCallId requires toolName`);
     }
-    if (typeof message.content !== "string") {
+    const content = typeof message.content === "string" ? message.content : (() => {
       const parts = message.content;
       if (parts.some(part => part.type !== "text")) {
         throw new OllamaPluginError("UNSUPPORTED_CONTENT", "Ollama adapter has not implemented image transport");
       }
-      return { role: message.role, content: parts.map(part => part.type === "text" ? part.text : "").join("") };
-    }
-    return { role: message.role, content: message.content };
+      return parts.map(part => part.type === "text" ? part.text : "").join("");
+    })();
+    if (message.toolCalls?.length && message.role !== "assistant")
+      throw new OllamaPluginError("INVALID_TOOL_HISTORY", "Only assistant messages may carry tool calls");
+    if (message.toolName && message.role !== "tool")
+      throw new OllamaPluginError("INVALID_TOOL_HISTORY", "Only tool messages may carry toolName");
+    return {
+      role: message.role,
+      content,
+      ...(message.toolCalls?.length ? { tool_calls: message.toolCalls.map(call => ({
+        function: { name: call.name, arguments: call.arguments }
+      })) } : {}),
+      ...(message.toolName ? { tool_name: message.toolName } : {})
+    };
   });
   return { model: request.model, messages, stream: true, ...root, options };
 }
