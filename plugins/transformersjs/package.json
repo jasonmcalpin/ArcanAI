@@ -12,5 +12,13 @@
       "default": "./dist/index.js"
     }
   },
-  "types": "./dist/index.d.ts"
+  "types": "./dist/index.d.ts",
+  "peerDependencies": {
+    "@huggingface/transformers": ">=4.3.2"
+  },
+  "peerDependenciesMeta": {
+    "@huggingface/transformers": {
+      "optional": true
+    }
+  }
 }
