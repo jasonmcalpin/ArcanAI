@@ -117,3 +117,46 @@ test("early provider disconnect is reported as failure", async () => {
 test("endpoint configuration rejects embedded credentials", () => {
   assert.throws(() => ollamaPlugin({ endpoint: "http://user:secret@localhost:11434" }), /without embedded credentials/);
 });
+
+test("native Ollama continuation preserves assistant tool_calls and named tool receipts", async () => {
+  let sent;
+  const runtime = createArcanAI();
+  runtime.register({ id: "mini", plugin: ollamaPlugin({
+    endpoint: "http://localhost:11434",
+    fetch: async (_url, options) => {
+      sent = JSON.parse(options.body);
+      return responseLines({ message: { content: "Relay healthy." }, done: true, eval_count: 6 });
+    }
+  }) });
+  const result = await runtime.generate({ card, messages: [
+    { role: "user", content: "Check relay" },
+    { role: "assistant", content: "I'll inspect it.", toolCalls: [
+      { id: "call-1", name: "workspace.read_text", arguments: { path: "relay-status.txt" } }
+    ] },
+    { role: "tool", content: '{"ok":true,"value":{"text":"healthy"}}',
+      toolName: "workspace.read_text", toolCallId: "call-1" }
+  ] });
+  assert.equal(result.status, "success");
+  assert.deepEqual(sent.messages[1], {
+    role: "assistant", content: "I'll inspect it.",
+    tool_calls: [{ function: { name: "workspace.read_text",
+      arguments: { path: "relay-status.txt" } } }]
+  });
+  assert.deepEqual(sent.messages[2], {
+    role: "tool", tool_name: "workspace.read_text",
+    content: '{"ok":true,"value":{"text":"healthy"}}'
+  });
+});
+
+test("non-assistant tool call history is rejected", async () => {
+  const runtime = createArcanAI();
+  runtime.register({ id: "mini", plugin: ollamaPlugin({
+    endpoint: "http://localhost:11434",
+    fetch: async () => responseLines({ done: true })
+  }) });
+  await assert.rejects(runtime.generate({ card, messages: [
+    { role: "user", content: "tool", toolCalls: [
+      { id: "bad", name: "shell", arguments: { command: "ls" } }
+    ] }
+  ] }), /toolCalls must be nonempty structured assistant tool calls/);
+});
