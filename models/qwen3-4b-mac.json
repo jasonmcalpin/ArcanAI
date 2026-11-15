@@ -1,0 +1,18 @@
+
+{
+  "schemaVersion": "1.0",
+  "id": "qwen3-4b-mac",
+  "execution": {
+    "plugin": "@arcanai/plugin-ollama",
+    "instance": "mac-m4",
+    "model": "qwen3:4b",
+    "options": {
+      "temperature": 0.7,
+      "maxTokens": 2048
+    },
+    "providerOptions": {
+      "num_ctx": 8192,
+      "think": true
+    }
+  }
+}
