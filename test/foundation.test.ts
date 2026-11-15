@@ -28,7 +28,7 @@ test("same plugin supports separate instances and precedence", async () => {
     id: "test/echo",
     async execute(req) {
       inputs.push({ model: req.model, num_ctx: req.providerOptions.num_ctx, maxTokens: req.options.maxTokens });
-      return { text: req.messages[0]?.content ?? "" };
+      return { text: typeof req.messages[0]?.content === "string" ? req.messages[0].content : "" };
     }
   };
   const runtime = createArcanAI();
