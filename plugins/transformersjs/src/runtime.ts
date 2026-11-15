@@ -15,6 +15,8 @@ export interface LoadedTransformersInstance {
   readonly plugin: ModelPlugin;
   readonly runtime: LoadedTransformersRuntime;
   readonly stoppingCriteria: { interrupt(): void; reset(): void };
+  /** Optional host-facing streaming observer. No effect on inference. */
+  observe(callbacks?: { onText?(text: string): void; onToken?(): void }): void;
   dispose(): Promise<void>;
 }
 
@@ -183,15 +185,24 @@ export async function loadTransformersJsInstance(
   }
 
   const stoppingCriteria = new sdk.InterruptableStoppingCriteria();
+  let observer: { onText?(text: string): void; onToken?(): void } | undefined;
   return {
     runtime,
     stoppingCriteria,
+    observe(callbacks) { observer = callbacks; },
     plugin: transformersJsPlugin({
       runtime, stoppingCriteria,
       createStreamer({ onText, onToken }) {
         return new sdk.TextStreamer(runtime.tokenizer, {
           skip_prompt: true, skip_special_tokens: true,
-          callback_function: onText, token_callback_function: onToken
+          callback_function(text: string) {
+            onText(text);
+            try { observer?.onText?.(text); } catch { /* telemetry cannot interrupt inference */ }
+          },
+          token_callback_function() {
+            onToken();
+            try { observer?.onToken?.(); } catch { /* observational callback */ }
+          }
         });
       }
     }),
