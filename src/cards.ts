@@ -78,7 +78,8 @@ export function parseModelCard(input: unknown): ExecutionCard {
       ...(instance === undefined ? {} : { instance }),
       model,
       options: validateOptions(spec.options, "card.execution.options"),
-      providerOptions: validateProviderOptions(spec.providerOptions, "card.execution.providerOptions")
+      providerOptions: validateProviderOptions(spec.providerOptions, "card.execution.providerOptions"),
+      ...(spec.runtime === undefined ? {} : { runtime: validateProviderOptions(spec.runtime, "card.execution.runtime") })
     }
   };
 }
