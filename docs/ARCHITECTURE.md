@@ -6,7 +6,7 @@
 
 ArcanAI is a host-independent TypeScript/JavaScript SDK for using model-execution plugins through stable, familiar interfaces. The host invokes models without depending on an individual provider protocol. Plugins translate structured requests and model settings to the actual runtime/service and normalize results. ArcanAI owns the **canonical execution portion of the model-card format** and its interpretation. BML and other hosts consume that same format and the same plugin implementations.
 
-ArcanAI does **not** orchestrate agents, execute host tools, persist or resume jobs, manage benchmarks, install or upgrade npm packages, download models, run provider services, or diagnose every provider failure. npm/Dependabot/project owners maintain dependencies; hosts (e.g. Aether) own jobs, retries, orchestration, recovery, and persistence. A missing plugin is a clear status/error, not an installation prompt.
+ArcanAI does **not** orchestrate agents, execute host tools, persist or resume jobs, manage benchmarks, install or upgrade npm packages, manage model downloads, run external provider services, or diagnose every provider failure. Plugins may load model assets using their installed runtime and the operator's cache/network policy during explicit initialization. npm/Dependabot/project owners maintain dependencies; hosts (e.g. Aether) own jobs, retries, orchestration, recovery, and persistence. A missing plugin is a clear status/error, not an installation prompt.
 
 ## Vocabulary
 
@@ -29,7 +29,7 @@ An *installed* npm package is not necessarily *registered*. A registered instanc
 | Responsibility | Owner |
 | --- | --- |
 | Public generation interface, card validation, plugin registration/dispatch, standardized status/events and cancellation propagation | ArcanAI core |
-| Provider wire format, prompt rendering when needed, provider options, response parsing, provider-specific errors, owned resource cleanup | Plugin |
+| Provider wire format, model runtime loading/initialization, tokenizer and prompt formatting, multimodal preprocessing, provider options, response parsing, provider-specific errors, owned resource cleanup | Plugin |
 | Registered instances, credentials, instance configuration, logging policy, execution limits, selecting a model/card | Host / deployment owner |
 | Agent loops, scheduling, tooling, long-lived tasks, checkpoint/resume, retry policy, task liveness | Host (e.g. Aether) |
 | Benchmark evaluation, scoring, run artifacts, qualification measurements | BML |
@@ -108,3 +108,11 @@ Validate cards and requests and bound event buffers. Treat secrets, payloads, pr
 - Verbose output can narrate preparation, send, receive, parse and failure with request ID, but `off` avoids payload capture.
 - A provider-specific option is accepted/validated by its plugin without modifying ArcanAI core.
 - Shared plugin contract tests verify these guarantees for independent adapters.
+
+## Runtime and multimodal ownership
+
+The provider plugin must own its model runtime adapter, initialization, tokenizer, prompt processing, supported content-part translation, image preprocessing, inference, and disposal. BML must not maintain separate model-family loaders or multimodal processors. Its benchmark inputs/fixtures/scoring and evidence remain BML-owned. Aether later consumes the same plugin and canonical card, independently of BML.
+
+The first Transformers.js plugin supports a declarative runtime specification (`kind`, `modelClass`, `processorClass`, `dtype`, `revision`, `device`, and optional image preprocessing settings). Configuration is validated as card data; no model-name-specific source switches are allowed. The optional injected runtime port remains for migration/testing; production hosts should use `loadTransformersJsInstance(card)`.
+
+The current multimodal contract supports typed text and image URL parts; the Transformers.js plugin validates a single image/user prompt until richer combinations are explicitly supported. Other plugins must reject unsupported inputs rather than flattening images into text.
