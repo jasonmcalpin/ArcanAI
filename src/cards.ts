@@ -79,7 +79,8 @@ export function parseModelCard(input: unknown): ExecutionCard {
       model,
       options: validateOptions(spec.options, "card.execution.options"),
       providerOptions: validateProviderOptions(spec.providerOptions, "card.execution.providerOptions"),
-      ...(spec.runtime === undefined ? {} : { runtime: validateProviderOptions(spec.runtime, "card.execution.runtime") })
+      ...(spec.runtime === undefined ? {} : { runtime: validateProviderOptions(spec.runtime, "card.execution.runtime") }),
+      ...(spec.profile === undefined ? {} : { profile: validateProviderOptions(spec.profile, "card.execution.profile") })
     }
   };
 }
