@@ -31,6 +31,8 @@ export interface ExecutionCard {
     providerOptions?: JsonRecord;
     /** Declarative plugin-owned model loader settings, never executable code. */
     runtime?: JsonRecord;
+    /** Shared declarative prompt, tool, reasoning and generation profile. */
+    profile?: JsonRecord;
   };
 }
 
