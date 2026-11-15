@@ -48,6 +48,13 @@ function makeBody(request: PluginExecutionRequest): Record<string, unknown> {
     if (message.toolCallId !== undefined) {
       throw new OllamaPluginError("UNSUPPORTED_MESSAGE_FIELD", `messages[${index}].toolCallId cannot be translated without a tool name`);
     }
+    if (typeof message.content !== "string") {
+      const parts = message.content;
+      if (parts.some(part => part.type !== "text")) {
+        throw new OllamaPluginError("UNSUPPORTED_CONTENT", "Ollama adapter has not implemented image transport");
+      }
+      return { role: message.role, content: parts.map(part => part.type === "text" ? part.text : "").join("") };
+    }
     return { role: message.role, content: message.content };
   });
   return { model: request.model, messages, stream: true, ...root, options };

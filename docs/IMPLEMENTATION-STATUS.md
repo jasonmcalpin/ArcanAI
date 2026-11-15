@@ -48,6 +48,14 @@ These timers supervise JavaScript async work. A frozen in-process event loop can
 - Deterministic mock coverage for all six model identities from the BML Mara experiment set.
 - Provider/model initialization remains injected during the parity bridge. This is **not** proof of live six-model benchmark parity or a full independently loading Transformers.js plugin; see [parity plan](TRANSFORMERS-PARITY.md).
 
+## Owned Transformers.js runtime and typed content (PR #10)
+
+- Canonical execution cards accept validated `runtime` configuration and messages accept typed text/image parts.
+- `loadTransformersJsInstance()` loads pipeline, tokenizer/formatted direct-model, and Qwen3.5 processor/direct-model runtimes within the plugin and owns disposal.
+- Transformers.js plugin supports one image plus prompt through provider-owned preprocessing. Unsupported multimodal content is rejected, not flattened.
+- Existing injected runtime mode remains available for migration tests; BML will adopt the owned loader separately.
+- No arbitrary remote-image URL trust policy, multimodal multiple-image/video/audio protocol, or standalone Aether integration is claimed.
+
 ## Not implemented yet
 
 Real provider adapters; timeout enforcement or heartbeat supervision; plugin lifecycle start/stop coordination; process supervision; concurrency limits; contract negotiation; provider option schemas/conflict validation; comprehensive sensitive-data redaction; host policy ceilings; file-based model card discovery; published packages; and BML migration.

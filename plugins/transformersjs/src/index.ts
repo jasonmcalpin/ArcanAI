@@ -7,6 +7,7 @@ import type { JsonRecord, ModelPlugin, PluginExecutionRequest } from "arcanai";
  */
 export interface TransformersModelRuntime {
   generate(messages: readonly { role: string; content: string }[], options: Record<string, unknown>): Promise<unknown>;
+  generateVision?(imageUrl: string, prompt: string, options: Record<string, unknown>): Promise<unknown>;
 }
 
 export interface TransformersPluginConfig {
@@ -68,6 +69,34 @@ export function transformersGenerationOptions(request: PluginExecutionRequest): 
 }
 
 /**
+ * Interpret typed ArcanAI content parts without flattening images into text.
+ * The initial Transformers.js vision capability accepts one user image and prompt.
+ */
+function invocationInput(request: PluginExecutionRequest):
+  | { kind: "text"; messages: { role: string; content: string }[] }
+  | { kind: "vision"; imageUrl: string; prompt: string } {
+  const images: Array<{ imageUrl: string; prompt: string }> = [];
+  const messages = request.messages.map(message => {
+    if (typeof message.content === "string") return { role: message.role, content: message.content };
+    const text = message.content.filter(part => part.type === "text").map(part => part.text).join("");
+    const imageParts = message.content.filter(part => part.type === "image");
+    if (imageParts.length) {
+      if (imageParts.length !== 1 || message.role !== "user") {
+        throw new TransformersPluginError("UNSUPPORTED_CONTENT", "vision requires a single user image");
+      }
+      const source = imageParts[0]!.source;
+      images.push({ imageUrl: source.url, prompt: text });
+    }
+    return { role: message.role, content: text };
+  });
+  if (!images.length) return { kind: "text", messages };
+  if (images.length !== 1 || messages.length !== 1 || !images[0]!.prompt.trim()) {
+    throw new TransformersPluginError("UNSUPPORTED_CONTENT", "vision requires one image and one nonempty text prompt");
+  }
+  return { kind: "vision", ...images[0]! };
+}
+
+/**
  * Model-execution adapter shared by pipeline and direct-model runtimes.
  * Initialization and model ownership stay in the provided runtime port for
  * this parity phase, so the native/ArcanAI comparison uses identical weights,
@@ -81,6 +110,10 @@ export function transformersJsPlugin(config: TransformersPluginConfig): ModelPlu
       if (active) throw new TransformersPluginError("INSTANCE_BUSY", "Transformers.js instance is already executing");
       // Validate without mutating the shared runtime state.
       const options = transformersGenerationOptions(request);
+      const input = invocationInput(request);
+      if (input.kind === "vision" && !config.runtime.generateVision) {
+        throw new TransformersPluginError("UNSUPPORTED_CONTENT", "this Transformers.js runtime does not support images");
+      }
       if (context.signal.aborted) throw new TransformersPluginError("CANCELLED", "Execution cancelled");
 
       active = true;
@@ -100,11 +133,16 @@ export function transformersJsPlugin(config: TransformersPluginConfig): ModelPlu
           }
         });
         context.log("debug", "provider generation started", { model: request.model });
-        await config.runtime.generate(request.messages, {
+        const runtimeOptions = {
           ...options,
           streamer,
           ...(config.stoppingCriteria ? { stopping_criteria: [config.stoppingCriteria] } : {})
-        });
+        };
+        if (input.kind === "vision") {
+          await config.runtime.generateVision!(input.imageUrl, input.prompt, runtimeOptions);
+        } else {
+          await config.runtime.generate(input.messages, runtimeOptions);
+        }
         if (context.signal.aborted) throw new TransformersPluginError("CANCELLED", "Execution cancelled");
         const generationMs = performance.now() - start;
         const termination = generatedTokens >= request.options.maxTokens! ? "TOKEN_LIMIT" : "UNKNOWN";
@@ -123,3 +161,6 @@ export function transformersJsPlugin(config: TransformersPluginConfig): ModelPlu
     }
   };
 }
+
+export { loadTransformersJsInstance } from "./runtime.js";
+export type { LoadedTransformersInstance, LoadedTransformersRuntime, TransformersLoadOptions } from "./runtime.js";

@@ -19,6 +19,7 @@
 | D-011 | No automatic request retry or provider upgrade/compatibility checks. | Avoid duplicate work/charges and perpetual edge-case maintenance. |
 | D-012 | ArcanAI heartbeat means supervisor alive, not model progressing. | A quiet model may be working; honest observability. |
 | D-013 | Shared plugin contracts and replaceable modules; trusted explicit in-process plugins initially. | Modularity is independence of decisions, not speculative abstraction; interfaces alone are not a sandbox. |
+| D-014 | Provider plugins own model runtime loading, tokenizers, prompt preparation, multimodal preprocessing and inference. | The same model-card/plugin pair runs in BML and Aether; BML no longer maintains a second provider engine. |
 
 ## Clarifications and rejected scope
 

@@ -3,9 +3,14 @@ export type DiagnosticLevel = "off" | "basic" | "verbose" | "trace";
 export type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 export type JsonRecord = Record<string, JsonValue>;
 
+/** Structured content is shared by every host; plugin decides how to render it. */
+export type ContentPart =
+  | { type: "text"; text: string }
+  | { type: "image"; source: { type: "url"; url: string } };
+
 export interface Message {
   role: "system" | "developer" | "user" | "assistant" | "tool";
-  content: string;
+  content: string | ContentPart[];
   toolCallId?: string;
 }
 
@@ -24,6 +29,8 @@ export interface ExecutionCard {
     model: string;
     options?: GenerationOptions;
     providerOptions?: JsonRecord;
+    /** Declarative plugin-owned model loader settings, never executable code. */
+    runtime?: JsonRecord;
   };
 }
 
