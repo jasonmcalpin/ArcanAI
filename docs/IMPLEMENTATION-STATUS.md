@@ -42,6 +42,12 @@ These timers supervise JavaScript async work. A frozen in-process event loop can
 - Scanning ignores symlinks and unrelated files, validates each card, rejects duplicate IDs, and performs no plugin registration or installation.
 - Includes a declarative Ollama card example and tests for catalog behavior.
 
+## Transformers.js parity adapter
+
+- Adds an independent Transformers.js executor plugin with pipeline/direct-model runtime port, validated option translation, concurrency guard, cancellation, timing and token metrics.
+- Deterministic mock coverage for all six model identities from the BML Mara experiment set.
+- Provider/model initialization remains injected during the parity bridge. This is **not** proof of live six-model benchmark parity or a full independently loading Transformers.js plugin; see [parity plan](TRANSFORMERS-PARITY.md).
+
 ## Not implemented yet
 
 Real provider adapters; timeout enforcement or heartbeat supervision; plugin lifecycle start/stop coordination; process supervision; concurrency limits; contract negotiation; provider option schemas/conflict validation; comprehensive sensitive-data redaction; host policy ceilings; file-based model card discovery; published packages; and BML migration.
