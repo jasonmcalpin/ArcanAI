@@ -144,3 +144,19 @@ For Transformers.js, the canonical ArcanAI card owns independent `execution.runt
 `prepareModelInvocationFromCard(card, request)`, `prepareVisionInvocationFromCard(card, imageUrl, prompt, budget)` and `parseModelOutputFromCard(card, raw)` are provider-owned helpers shared by BML and Aether. They do not import benchmark fixture/scorer concepts. A host may use these helpers to construct an invocation for a chosen workload; they are not separate BML engines.
 
 BML v3 cards can be migrated into this schema without changing benchmark evidence. Existing benchmark-specific fields remain BML-owned. A card's presence never installs packages, model weights or services.
+
+## Host-selected model card sources
+
+Card paths belong to the consuming host, **not** to ArcanAI's plugin, a model card, or a global default. Node hosts may provide `{ root, path }` to `readModelCards` to read canonical cards, or to `readCardFilesSync` when migrating a legacy card schema. `path` may select a JSON file or a directory within the explicit `root`. No model is executed or provider registered by these operations.
+
+```ts
+import { readModelCards } from "arcanai/node/cards";
+const cards = await readModelCards({ root: projectRoot, path: "models" });
+// BML can select "testing", Aether "models", etc.
+```
+
+In browser contexts, the host imports/fetches its configured assets or manifests and calls `parseModelCard` on their JSON values; ArcanAI does not attempt to access the host filesystem or embed the build system's directory conventions. Paths are source-location policy only, and never become model execution identity. A host is responsible for selecting the files and versioning its inventory.
+
+For migration from BML's legacy v3 cards, `readCardFilesSync({root,path})` returns undecorated JSON values and their paths; the BML host must validate the legacy shape and translate the execution portion to the canonical ArcanAI card. Do not treat arbitrary legacy JSON as validated canonical execution data.
+
+The Node loader rejects root traversal, selected-folder symlinks, and symlinked JSON files. An empty folder returns an empty inventory; requiring nonempty inventories is a host policy. This helper does not install dependencies or discover/register plugins.
