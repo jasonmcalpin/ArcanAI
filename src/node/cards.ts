@@ -1,5 +1,5 @@
 import { readdirSync, readFileSync, realpathSync, statSync, lstatSync } from "node:fs";
-import { resolve, relative, isAbsolute, join } from "node:path";
+import { resolve, relative, isAbsolute, join, dirname, basename } from "node:path";
 import { parseModelCard } from "../cards.js";
 import type { ExecutionCard } from "../types.js";
 
@@ -82,7 +82,7 @@ export function readCardFilesSync(source: CardSource): RawCardFile[] {
  */
 export async function readModelCards(source: CardSource | string): Promise<ModelCardFile[]> {
   const files = readCardFilesSync(typeof source === "string"
-    ? { root: process.cwd(), path: source }
+    ? { root: dirname(resolve(source)), path: basename(resolve(source)) }
     : source);
   const ids = new Set<string>();
   return files.map(({ path, value }) => {
