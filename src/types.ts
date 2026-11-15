@@ -12,6 +12,10 @@ export interface Message {
   role: "system" | "developer" | "user" | "assistant" | "tool";
   content: string | ContentPart[];
   toolCallId?: string;
+  /** Structured assistant tool calls from an earlier turn; provider renders natively. */
+  toolCalls?: ToolCall[];
+  /** Name of the tool producing a tool-role receipt. */
+  toolName?: string;
 }
 
 export interface GenerationOptions {

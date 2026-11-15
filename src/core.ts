@@ -106,6 +106,17 @@ export class ArcanAI {
         if (!["system", "developer", "user", "assistant", "tool"].includes(message.role)) {
           throw new TypeError("invalid message role");
         }
+        if (message.toolCalls !== undefined) {
+          if (message.role !== "assistant" || !Array.isArray(message.toolCalls) || !message.toolCalls.length ||
+            message.toolCalls.some(call => !call || typeof call.id !== "string" || !call.id ||
+              typeof call.name !== "string" || !call.name ||
+              !call.arguments || typeof call.arguments !== "object" || Array.isArray(call.arguments)))
+            throw new TypeError("toolCalls must be nonempty structured assistant tool calls");
+          for (const call of message.toolCalls) validateProviderOptions(call.arguments, "message.toolCalls.arguments");
+        }
+        if (message.toolName !== undefined && (message.role !== "tool" ||
+          typeof message.toolName !== "string" || !message.toolName.trim()))
+          throw new TypeError("toolName must identify a tool-role message");
         if (typeof message.content === "string") return { ...message };
         if (!Array.isArray(message.content) || message.content.length === 0) {
           throw new TypeError("message content must be text or a nonempty array of parts");
