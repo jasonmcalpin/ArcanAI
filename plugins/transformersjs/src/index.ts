@@ -164,3 +164,7 @@ export function transformersJsPlugin(config: TransformersPluginConfig): ModelPlu
 
 export { loadTransformersJsInstance } from "./runtime.js";
 export type { LoadedTransformersInstance, LoadedTransformersRuntime, TransformersLoadOptions } from "./runtime.js";
+
+export { prepareModelInvocation, prepareVisionInvocation, parseModelOutput } from "./protocol.js";
+export type { ModelProfile, ProfileCandidate, ProfileRequest, ProfileMessage,
+  PreparedModelInvocation, PreparedVisionInvocation, ParsedTurn } from "./protocol-types.js";
