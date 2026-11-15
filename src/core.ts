@@ -103,10 +103,24 @@ export class ArcanAI {
       }
 
       const messages: Message[] = request.messages.map(message => {
-        if (!["system", "developer", "user", "assistant", "tool"].includes(message.role) || typeof message.content !== "string") {
-          throw new TypeError("invalid message role or content");
+        if (!["system", "developer", "user", "assistant", "tool"].includes(message.role)) {
+          throw new TypeError("invalid message role");
         }
-        return { ...message };
+        if (typeof message.content === "string") return { ...message };
+        if (!Array.isArray(message.content) || message.content.length === 0) {
+          throw new TypeError("message content must be text or a nonempty array of parts");
+        }
+        const parts = message.content.map(part => {
+          if (!part || typeof part !== "object") throw new TypeError("invalid content part");
+          if (part.type === "text" && typeof part.text === "string") {
+            return { type: "text" as const, text: part.text };
+          }
+          if (part.type === "image" && part.source?.type === "url" && typeof part.source.url === "string" && part.source.url.trim()) {
+            return { type: "image" as const, source: { type: "url" as const, url: part.source.url } };
+          }
+          throw new TypeError("unsupported content part; required image fields are source.type=url and source.url");
+        });
+        return { ...message, content: parts };
       });
       const options: GenerationOptions = {
         ...validateOptions(instance.defaults?.options),
