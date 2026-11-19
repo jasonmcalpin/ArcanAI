@@ -19,12 +19,12 @@ Browser compatibility remains intentional **at the SDK boundary**: core model ca
 | Concern | Owner or representation | Architectural consequence |
 | --- | --- | --- |
 | Host execution environment | Node / browser / other explicitly supported host | Plugin runtime compatibility varies without changing the core inference contract. |
-| Provider/transport | Embedded Transformers.js, native Ollama HTTP, future HTTP/hosted adapters | Each plugin owns wire formats, credentials, loading, cancellation translation and resource cleanup. |
+| Provider/transport | Embedded Transformers.js, native Ollama HTTP, compatible local HTTP and direct OpenAI/Anthropic plugins; future Gemini | Each plugin owns wire formats, credentials, loading, cancellation translation and resource cleanup. |
 | Model identity | Canonical execution card plus provider and instance identity | Catalog identity is not a runtime availability or benchmark-quality claim. |
 | Capabilities | Adapter support, model declaration, independently observed evidence | A claimed tool/vision feature is not equivalent to BML qualification. Unsupported requirements fail, never silently degrade. |
 | Invocation policy | Host-owned limits, explicit options, credentials and network permissions | Card and request defaults must not override authority or budgets granted by the host. |
 
-An OpenAI-compatible HTTP service (potentially llama.cpp or LM Studio), and direct OpenAI/Anthropic/Gemini APIs, are **future plugin targets**, not currently shipped providers. Compatibility must be established per endpoint and feature. A consumer app subscription is not a substitute for API authorization; browser API clients must not embed provider secrets. Provider-specific choices belong in plugins and validated configuration, never provider-name branches in core.
+OpenAI-compatible HTTP, direct OpenAI Responses and direct Anthropic Messages plugins are implemented and fixture-tested. A direct Gemini adapter remains a future target pending a provider-continuation contract that can preserve its reasoning/tool state. Compatibility must be established per endpoint and feature. A consumer app subscription is not a substitute for API authorization; browser API clients must not embed provider secrets. Provider-specific choices belong in plugins and validated configuration, never provider-name branches in core.
 
 The overarching invariant is **one inference invocation, replaceable provider implementation, one canonical execution-card meaning** across Aether, BML and other hosts. Multi-turn agent control, host tool execution and completion decisions remain outside ArcanAI.
 
@@ -32,7 +32,7 @@ The overarching invariant is **one inference invocation, replaceable provider im
 
 1. Validate and harden existing contracts: instance lifecycle and cancellation, capability declarations, host limits, aggregate output/diagnostic budgets and browser-neutral packaging.
 2. Qualify small Transformers.js models running headless under Node on macOS, with reproducible model/revision/device settings and explicit cleanup; keep Ollama acceptance as a separate service integration.
-3. Add an OpenAI-compatible HTTP plugin for compatible local servers, then provider-specific hosted API plugins. Each gets conformance coverage for streaming, errors, tool-call output, cancellation, usage and unsupported modalities.
+3. Qualify the implemented local compatible HTTP, OpenAI Responses and Anthropic Messages plugins against real endpoints; introduce additional provider plugins only with complete, reviewable continuation and streaming contracts.
 4. Replace BML's own inference engines with shared provider plugins only after real paired-parity testing, while preserving historical benchmark results; verify Aether and BML consume the same ArcanAI card semantics.
 5. Independently validate browser/WebGPU only when a browser consumer needs it. Do not make Node/Aether wait for browser-specific acceptance.
 
@@ -79,7 +79,7 @@ Host (BML / Aether / other)
     v
 ArcanAI SDK
     | validate card/request; resolve explicit instance;
-    | merge eligible options; host ceilings not yet fully enforced; dispatch;
+    | merge eligible options; host limits and cumulative capture budgets enforced where configured; dispatch;
     | emit status/progress/diagnostic events
     v
 Plugin instance (e.g., Ollama, OpenAI, llama.cpp, Transformers)

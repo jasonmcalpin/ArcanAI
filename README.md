@@ -2,7 +2,7 @@
 
 **Host-independent model inference through explicitly registered, replaceable provider plugins.**
 
-**Status:** An implemented but unpublished TypeScript/JavaScript SDK with a canonical execution-card schema, `generate()` / `stream()`, supervision, an Ollama provider plugin, and a Transformers.js provider plugin with an owned loader. Those capabilities have automated tests; this is **not** evidence that every supported model, device, browser, or provider has been runtime-qualified. See [implementation status](docs/IMPLEMENTATION-STATUS.md).
+**Status:** An implemented but unpublished TypeScript/JavaScript SDK with a canonical execution-card schema, `generate()` / `stream()`, supervision, bounded host execution policy, Ollama and Transformers.js plugins, an OpenAI-compatible local HTTP plugin, and direct OpenAI Responses and Anthropic Messages plugins. Those capabilities have automated tests; this is **not** evidence that every supported model, device, browser, or provider has been runtime-qualified. See [implementation status](docs/IMPLEMENTATION-STATUS.md).
 
 ## Destination
 
@@ -16,8 +16,9 @@ ArcanAI SDK  —  validation, registration, streaming, cancellation, diagnostics
       │
       ├── Embedded model plugin: Transformers.js (headless Node first)
       ├── Local service plugin: Ollama
-      └── Future independent plugins: OpenAI-compatible HTTP, OpenAI,
-          Anthropic, Gemini, and other supported providers
+      ├── Compatible HTTP plugin: selected llama.cpp/LM Studio services
+      ├── Hosted plugins: OpenAI Responses and Anthropic Messages
+      └── Planned independently: Gemini Interactions and other providers
 ```
 
 **Primary execution target for local agent work:** headless Node.js on the developer's machine (macOS first), using small models through Transformers.js or models exposed by a locally running Ollama service. The browser-neutral core and possible browser/WebGPU inference remain useful for BML and web applications, but a browser runtime is **not required for Aether's file and tool workflows**. Node/CPU and Node/WebGPU model support depend on the installed runtime, model and actual hardware; browser support is not inferred from TypeScript compatibility.
@@ -26,10 +27,13 @@ A model provider can be embedded, local over HTTP, or remote. Environment (Node/
 
 ## Implemented interfaces and plugins
 
-- **Core:** `createArcanAI()`, explicit `register({ id, plugin, defaults? })`, `generate({ card, messages, ... })`, `stream({ card, messages, ... })`. `card` is a **validated execution-card object**, not an automatically looked-up card ID.
+- **Core:** `createArcanAI()`, explicit `register({ id, plugin, defaults?, capabilities?, limits? })`, `generate({ card, messages, ... })`, `stream({ card, messages, ... })`. `card` is a **validated execution-card object**, not an automatically looked-up card ID.
 - **Cards:** `parseModelCard()` and host-selected Node `readModelCards({ root, path })` through `arcanai/node/cards`; browser hosts load JSON through their own asset mechanism.
 - **Ollama:** `arcanai/plugins/ollama` uses native Ollama `/api/chat` streaming. The host must start/configure Ollama and provide its endpoint.
 - **Transformers.js:** `arcanai/plugins/transformersjs` provides `loadTransformersJsInstance(card)`, model initialization, supported runtime profiles, inference and disposal. Model asset loading follows the installed Transformers.js runtime's configuration; ArcanAI is not a dependency/model installer.
+- **Compatible HTTP:** `arcanai/plugins/openai-compatible` targets operator-configured compatible Chat Completions endpoints.
+- **OpenAI and Anthropic:** `arcanai/plugins/openai` and `arcanai/plugins/anthropic` translate their independent hosted streaming APIs. API keys, model access and pricing belong to the operator.
+- **Local acceptance:** `npm run smoke:node:transformers -- --card /path/to/card.json` runs a real model only when the target host has suitable weights and runtime support; CI does not establish Mac hardware compatibility.
 
 ```ts
 import { createArcanAI, parseModelCard } from "arcanai";
@@ -68,7 +72,7 @@ This example presumes the specified model is available in the host's Ollama inst
 
 ArcanAI does **not** install packages, install/start models or services, auto-register plugins, retry ambiguous provider requests, manage durable agent jobs, execute model-requested tools, or provide an OS sandbox. Cards are data, not executable instructions or permissions.
 
-Support for OpenAI-compatible local HTTP servers and direct OpenAI/Anthropic/Gemini APIs is a **planned plugin direction**, not a feature available from the current package. Consumer ChatGPT/Claude subscriptions must not be assumed to authorize use of the corresponding provider APIs. In browsers, provider secrets must remain outside client bundles.
+OpenAI-compatible HTTP, direct OpenAI Responses and direct Anthropic Messages adapters are implemented and contract-tested. Direct Gemini Interactions and broader multimodal support remain planned: the current canonical message contract cannot yet preserve all Gemini continuation/thought-signature metadata needed for faithful stateless agent-tool loops. Consumer ChatGPT/Claude subscriptions must not be assumed to authorize use of the corresponding provider APIs. In browsers, provider secrets must remain outside client bundles.
 
 ## Development and reference documents
 

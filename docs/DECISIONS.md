@@ -34,15 +34,15 @@
 
 ## Implemented decisions and remaining design questions
 
-The code implements v1.0 cards, explicit named registration, a common async event stream with `generate()` collecting it, per-request heartbeat/idle/total supervision, host-selected Node card sources, a native Ollama provider and a Transformers.js provider-owned model loader. These no longer belong in a generic "unimplemented API" list. Check `IMPLEMENTATION-STATUS.md` for verification limits.
+The code implements v1.0 cards, explicit named registration, a common async event stream with `generate()` collecting it, per-request heartbeat/idle/total supervision, host-selected Node card sources, a native Ollama provider, a Transformers.js provider-owned model loader, host capture budgets, optional adapter capability declarations, and independently implemented local compatible HTTP, OpenAI Responses and Anthropic Messages providers. These no longer belong in a generic "unimplemented API" list. Check `IMPLEMENTATION-STATUS.md` for verification limits.
 
 The following decisions remain open at the implementation-contract level:
 
-1. Plugin capability and compatibility descriptions (declared support vs observed BML evidence); reject unsupported features rather than silently degrading.
-2. Immutable host-policy ceilings, aggregation limits for streamed text/reasoning/diagnostics, and comprehensive sanitization of provider errors and plugin logs.
+1. Move beyond implemented adapter-declared capability requirements to observed model-specific BML qualification and provider feature-level compatibility evidence.
+2. The implemented host token/capture ceilings require broader provider-budget conformance; comprehensive sanitization of arbitrary provider errors and plugin logs is still outstanding.
 3. Cross-provider initialization/concurrency/stop/dispose protocol and safe failure recovery without assuming in-process plugins are isolated.
 4. Semver/release contracts, historical BML card migration, and real provider/model/device parity.
-5. Which HTTP services deserve an OpenAI-compatible adapter versus a vendor-specific provider plugin, with explicit feature and credential boundaries.
+5. Validate the implemented compatible HTTP, OpenAI Responses and Anthropic Messages providers on real configured endpoints, and define Gemini continuation/thought-signature preservation before its tool-capable adapter.
 6. Real Node CPU/WebGPU support and optional browser WebGPU acceptance per chosen model/revision/quantization/device. Buildability alone isn't proof of execution.
 
 No new automatic package installation, model downloads, retries, hosted orchestration, or SDK-owned tool execution are authorized by these questions.
