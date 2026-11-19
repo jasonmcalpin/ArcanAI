@@ -150,6 +150,10 @@ export class ArcanAI {
         ...validateOptions(card.execution.options),
         ...validateOptions(request.options)
       };
+      // A host ceiling must also bound cards that omit maxTokens: leaving the
+      // field absent would delegate the generation limit to provider defaults.
+      if (limits.maxTokens !== undefined && options.maxTokens === undefined)
+        options.maxTokens = limits.maxTokens;
       enforceTokenLimit(options, limits);
       const providerOptions: JsonRecord = {
         ...validateProviderOptions(instance.defaults?.providerOptions),
