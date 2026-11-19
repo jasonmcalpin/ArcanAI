@@ -112,3 +112,59 @@ test("execute-only plugins are wrapped into the same stream protocol", async () 
   for await (const event of runtime.stream({ card, messages: [] })) types.push(event.type);
   assert.deepEqual(types, ["started", "text-delta", "completed"]);
 });
+
+test("host token ceilings reject request/card values before any provider call", async () => {
+  let executed = false;
+  const runtime = createArcanAI();
+  runtime.register({ id: "local", limits: { maxTokens: 16 },
+    plugin: { id: "test/stream", async *stream() {
+      executed = true;
+      yield { type: "completed" } as const;
+    } } });
+  const response = await runtime.generate({
+    card: parseModelCard({ ...card, execution: { ...card.execution, options: { maxTokens: 32 } } }),
+    messages: []
+  });
+  assert.equal(response.status, "error");
+  assert.match(response.error?.message ?? "", /maxTokens exceeds/);
+  assert.equal(executed, false);
+});
+
+test("required capabilities fail without a truthful adapter declaration", async () => {
+  const runtime = createArcanAI();
+  let invoked = false;
+  runtime.register({ id: "local", capabilities: {
+    schemaVersion: "1", modalities: ["text"], streaming: false, toolCalls: false,
+  }, plugin: { id: "test/stream", async execute() { invoked = true; return { text: "hi" }; } } });
+  const missing = await runtime.generate({ card, messages: [], requiredCapabilities: ["image"] });
+  assert.equal(missing.status, "unavailable");
+  assert.equal(missing.error?.code, "UNSUPPORTED_CAPABILITY");
+  assert.equal(invoked, false);
+  const okay = await runtime.generate({ card, messages: [], requiredCapabilities: ["text"] });
+  assert.equal(okay.status, "success");
+});
+
+test("streamed text, reasoning and tool receipts are bounded independently", async () => {
+  const cases: Array<{ kind: "text" | "reasoning" | "tools"; code: string }> = [
+    { kind: "text", code: "OUTPUT_LIMIT" },
+    { kind: "reasoning", code: "REASONING_LIMIT" },
+    { kind: "tools", code: "TOOL_CALL_LIMIT" },
+  ];
+  for (const c of cases) {
+    const runtime = createArcanAI();
+    runtime.register({ id: "local", plugin: { id: "test/stream", async *stream() {
+      if (c.kind === "text") yield { type: "text-delta", text: "too much" } as const;
+      if (c.kind === "reasoning") yield { type: "reasoning-delta", text: "too much" } as const;
+      if (c.kind === "tools") {
+        yield { type: "tool-call", toolCall: { id: "1", name: "read", arguments: {} } } as const;
+        yield { type: "tool-call", toolCall: { id: "2", name: "read", arguments: {} } } as const;
+      }
+      yield { type: "completed" } as const;
+    } } });
+    const response = await runtime.generate({ card, messages: [], limits: {
+      maxOutputBytes: 4, maxReasoningBytes: 4, maxToolCalls: 1
+    } });
+    assert.equal(response.status, "error");
+    assert.equal(response.error?.code, c.code);
+  }
+});
