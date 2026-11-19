@@ -58,6 +58,7 @@ export class ArcanAI {
     const card = parseModelCard(request.card);
     const timers = validateTimers(request.timers);
     const diagnostics: DiagnosticEvent[] = [];
+    let diagnosticLimit = 256;
     const requestedLevel = request.diagnostics ?? "off";
     if (!LEVELS.includes(requestedLevel)) throw new TypeError("invalid diagnostic level");
     const level = LEVELS[Math.min(LEVELS.indexOf(requestedLevel), LEVELS.indexOf(this.maxDiagnostics))];
@@ -67,7 +68,7 @@ export class ArcanAI {
         executionId, timestamp: new Date().toISOString(), level: severity, source, message,
         ...(data ? { data } : {})
       };
-      if (diagnostics.length >= 256) return; // Fixed default until instance limits resolve.
+      if (diagnostics.length >= diagnosticLimit) return;
       diagnostics.push(event);
       try { request.onDiagnostic?.(event); } catch { /* observers cannot affect inference */ }
     };
@@ -91,6 +92,7 @@ export class ArcanAI {
     }
 
     const limits = executionLimits(instance, request);
+    diagnosticLimit = limits.maxDiagnosticEvents!;
     const capabilityFailure = requireCapabilities(instance, request);
     if (capabilityFailure) {
       yield { type: "failed", executionId,
