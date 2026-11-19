@@ -15,7 +15,7 @@ It supports both BML runtime implementations: `pipeline` and `direct-model`. The
 | SmolLM3 3B | pipeline |
 | Qwen3 4B | pipeline |
 
-The host owns initialization during this **parity bridge phase**. ArcanAI's plugin owns translation of common options into Transformers.js generation options and execution against the injected runtime port. This avoids prematurely rewriting a working BML inference engine and confusing changes to prompt rendering with plugin overhead. The eventual stable endpoint is for the plugin to own model loading and compatibility profiles, after parity and schema migration.
+The host owns initialization during this **parity bridge phase**. ArcanAI's plugin owns translation of common options into Transformers.js generation options and execution against the injected runtime port. This avoids prematurely rewriting a working BML inference engine and confusing changes to prompt rendering with plugin overhead. The provider-owned loader now exists in `loadTransformersJsInstance(card)` with declarative `runtime`/`profile` inputs. Migration of BML and actual paired performance/parity measurements remain outstanding. The injected runtime port stays available for controlled comparison.
 
 ## Contract
 
