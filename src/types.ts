@@ -92,13 +92,33 @@ export interface ModelPlugin {
   stop?(): Promise<void>;
 }
 
+/** Adapter claims only; model-card declarations and BML observations are distinct. */
+export interface PluginCapabilities {
+  schemaVersion: "1";
+  modalities: Array<"text" | "image">;
+  streaming: boolean;
+  toolCalls: boolean;
+}
+
+/** Independent host ceilings cannot be widened by cards or request overrides. */
+export interface ExecutionLimits {
+  maxTokens?: number;
+  maxOutputBytes?: number;
+  maxReasoningBytes?: number;
+  maxToolCalls?: number;
+  maxDiagnosticEvents?: number;
+}
+
 export interface PluginInstance {
   id: string;
   plugin: ModelPlugin;
+  /** Optional adapter capability declaration; unknown is not proof of support. */
+  capabilities?: PluginCapabilities;
   defaults?: {
     options?: GenerationOptions;
     providerOptions?: JsonRecord;
   };
+  limits?: ExecutionLimits;
 }
 
 export interface GenerateRequest {
@@ -112,6 +132,10 @@ export interface GenerateRequest {
   /** Wall-clock liveness controls; omitted deadlines are disabled. */
   timers?: { heartbeatMs?: number; idleMs?: number; totalMs?: number };
   onDiagnostic?: (event: DiagnosticEvent) => void;
+  /** Optional explicit requirements; unsupported or undeclared capabilities fail before provider invocation. */
+  requiredCapabilities?: Array<"text" | "image" | "streaming" | "toolCalls">;
+  /** Optional request-local tightening of instance limits, never widening. */
+  limits?: ExecutionLimits;
 }
 
 export type ExecutionStatus = "success" | "error" | "timeout" | "cancelled" | "unavailable";
