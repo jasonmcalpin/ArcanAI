@@ -49,3 +49,26 @@ deliberately rejects image inputs and unsupported options; model-specific
 compatibility, tool correctness and local endpoint readiness require an
 independent integration test. Provider keys belong in host configuration,
 never model cards or browser JavaScript bundles.
+
+## Headless Node Transformers.js acceptance on macOS
+
+A developer can run a selected, already-compatible Transformers.js model
+headlessly in Node with its explicit execution card (no browser):
+
+```sh
+npm ci
+npm run smoke:node:transformers -- --card /absolute/path/to/card.json --max-tokens 64
+```
+
+The selected JSON card must use `@arcanai/plugin-transformersjs` with an
+approved `execution.runtime` (`kind`, `model`, `device`,
+`dtype`, `revision`). The smoke command invokes the public ArcanAI
+`generate()` contract, reports bounded model, runtime, usage, timing,
+and completion metadata, and disposes the loaded runtime in `finally`.
+It deliberately does not install models or choose an unreviewed fallback,
+and will fail if the model/device/weights do not actually work.
+
+CI exercises a deterministic CPU runtime using an injected Transformers
+SDK fixture; that is not evidence of real model inference on a Mac.
+Hardware qualification must be executed by the developer with a selected
+small-model card and the model cache/network policy configured externally.
