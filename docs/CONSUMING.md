@@ -99,3 +99,23 @@ failure for unsupported inputs/options. It defaults to `store: false`.
 It does not execute tools or manage API billing. Actual API-key access,
 provider latency/model selection and hosted tool-mode conformance remain
 operator-configured runtime validation, not CI evidence.
+
+## Direct Anthropic Messages API
+
+`arcanai/plugins/anthropic` is an independent provider mapping the
+Anthropic Messages SSE protocol to ArcanAI text/reasoning deltas, native
+`tool_use` outputs, usage and termination status. The host supplies the
+API key and model ID. Unsupported roles, images and advanced provider
+features fail rather than being silently flattened.
+
+```ts
+import { anthropicMessagesPlugin } from "arcanai/plugins/anthropic";
+
+const adapter = anthropicMessagesPlugin({ apiKey: process.env.ANTHROPIC_API_KEY! });
+// Register `adapter` under an explicit instance ID in createArcanAI().
+```
+
+The plugin defaults to the provider's currently documented Messages API
+version `2026-10-21`. Real API authorization, pricing/model availability,
+capability scope and streaming acceptance are operator-owned, not CI proofs.
+Claude consumer subscriptions do not provide API credentials.
