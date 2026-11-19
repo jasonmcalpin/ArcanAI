@@ -1,63 +1,40 @@
-# Implementation status
+# ArcanAI implementation status
 
-## Foundation (PR #3)
+**Evidence boundary:** This inventory reflects the implementation and checked-in tests on the reviewed `main` branch, not a newly executed hardware benchmark or deployed provider acceptance. An exported API is not proof that every model/device/provider works. Historical worklogs and PR references remain historical.
 
-Canonical execution-card schema v1.0, validation, explicit plugin registration with multiple instances, configuration layering, normalized execution statuses, abort propagation, and optional diagnostics. Tests use fake adapters.
+## Implemented in source
 
-## Streaming execution (this PR)
+| Capability | Owner/source | Evidence and limitations |
+| --- | --- | --- |
+| Canonical versioned execution card and validation | `src/cards.ts`, `src/types.ts` | `schemaVersion: "1.0"`; common generation settings and JSON provider/runtime/profile fields validated. Not a full plugin compatibility or host-policy-ceiling negotiation system. |
+| Named explicit plugin instances | `src/core.ts` | `register()`, duplicate-instance rejection, `listInstances()`; no provider auto-activation or installation. |
+| Model call and streaming results | `src/core.ts` | `generate()` consumes the same async stream that `stream()` exposes. Text/reasoning deltas, structured tool-call **output**, and terminal result supported. ArcanAI never executes tools. |
+| Supervision | `src/supervision.ts` | Per-call heartbeat, idle and total timers; abort propagation; one terminal outcome. In-process event-loop stalls and noncooperative provider cleanup cannot be forcibly interrupted. |
+| Diagnostics | `src/core.ts` | `off/basic/verbose/trace`, max-level capping and callback isolation. Arbitrary plugin diagnostic payload redaction is **not established**; no blanket production-safety claim. |
+| Ollama provider | `plugins/ollama/src/index.ts` | Native `POST /api/chat` NDJSON streaming, model text/reasoning, tool calls, usage, options/conflict checks and abort support. Protocol tests use injected `fetch`; an actual running Ollama deployment is a separate acceptance test. |
+| Transformers.js provider | `plugins/transformersjs/src/index.ts`, `runtime.ts` | Plugin-owned loader `loadTransformersJsInstance(card)`, pipeline/direct-model profiles, CPU/WebGPU device options, generation/token callbacks, cancellation and disposal. Runtime/card compatibility is model/device specific; mocked loader tests are not live Node or browser parity evidence. |
+| Typed text and limited image input | `src/types.ts`, Transformers.js plugin | Text/image URL parts represented; Transformers.js supports a bounded **single user image and prompt** for an appropriate runtime. Other combinations are not silently flattened. |
+| Host-selected Node card catalog | `src/node/cards.ts` | `readModelCards({root,path})` and legacy string form; explicit file/folder selection with path validation. This subpath uses Node filesystem APIs. |
+| Browser-neutral core | `src/core.ts`, `src/types.ts` | Core avoids Node filesystem imports. Actual browser bundling, WebGPU and model execution need independently verified browser acceptance. |
+| Consumable Git-distributed package | `package.json`, `docs/CONSUMING.md` | Subpath exports and build scripts. Package remains private/unpublished; installing does not register or provision providers. |
 
-- `stream()` produces `started`, text delta, structured tool call, progress and exactly one terminal event.
-- `generate()` consumes the same execution/event path and returns the terminal result.
-- A plugin may implement `stream()`; existing execute-only plugins are adapted to the same event contract.
-- Provider stream completion is validated before publishing successful terminal status. Missing completion, post-completion events and exceptions fail the execution.
-- Request cancellation is propagated to the provider, and abandoning an iterator aborts the plugin signal. Cancellation is best effort; a provider ignoring abort can still hold a pending operation.
-- Structured tool calls are forwarded to the host but never executed by ArcanAI.
-- No unbounded internal diagnostic event queue for streaming data: output is yielded to the consumer; a terminal `generate()` necessarily collects output.
-- Added focused conformance tests for these conditions.
+## Not yet established as implemented
 
-## Execution supervision (this PR)
+- Headless **real-model** acceptance matrix for embedded Transformers.js on the target Mac in Node (model ID, revision, dtype, device and lifecycle), distinct from unit tests and compatibility in BML.
+- End-to-end parity showing BML and Aether run identical approved execution cards/plugins with equivalent effective settings and evidence.
+- Browser/WebGPU packaged/runtime acceptance. Browser remains optional for Aether, useful for BML and other clients.
+- OpenAI-compatible HTTP provider for compatible llama.cpp/LM Studio/local gateways; direct OpenAI, Anthropic and Gemini API plugins; native llama.cpp binding.
+- Versioned plugin capability/compatibility negotiation; host-enforced hard ceilings across card/request overrides; universal instance lifecycle/concurrency management.
+- Bounded aggregate streaming capture/diagnostic retention and comprehensive secret-safe logging across arbitrary plugins.
+- Published versioned npm packages and migration/compatibility guarantees for all historical BML cards.
+- Broad modality support beyond current bounded text and Transformers.js image path.
 
-- Per-request `heartbeatMs`, `idleMs`, and `totalMs` settings. Heartbeats are emitted while waiting for provider events, without issuing concurrent reads or pretending the model made progress.
-- Idle deadline is reset only by provider events; supervisor heartbeats do not reset it. Total deadline is independent of progress.
-- Caller cancellation can interrupt a silent provider wait at the ArcanAI boundary; deadlines abort the request signal and report `timeout`. Provider-side cancellation remains best effort.
-- Provider iterator close is requested without blocking terminal failure reporting if a provider ignores cancellation.
-- Default: heartbeat every 5 seconds; no automatic idle or total cutoff. No background compatibility checks.
-- Focused tests cover quiet provider heartbeats, idle timeout, total timeout under progress, cancellation of silent requests and invalid timer configuration.
+## Delivery order (architectural dependencies, not an MVP)
 
-These timers supervise JavaScript async work. A frozen in-process event loop cannot send heartbeats or enforce deadlines; process isolation is not promised.
+1. **Contract hardening:** Lock down current public API, provider capability reporting, host ceilings, capture budgets, lifecycle/cleanup and evidence semantics while preserving the implemented card v1.0 format or explicitly migrating it.
+2. **Headless Node acceptance:** Run a target small-model suite through ArcanAI's owned Transformers.js loader on macOS; verify fallback, cancellation, memory, initialization/disposal and determinism/usage evidence. Retain Ollama contract acceptance.
+3. **Provider expansion:** First a bounded OpenAI-compatible HTTP adapter for compatible local servers; then independent direct hosted API adapters where protocol and authentication semantics warrant them. No model-name switches in core.
+4. **Consumer parity:** Migrate BML away from duplicate inference engines only after model-card equivalence and real target-machine parity; validate Aether uses the same approved execution cards.
+5. **Optional browser acceptance:** Verify WebGPU/browser portability if a BML or application scenario requires it; never impose browser requirements on Node/Aether.
 
-## Ollama provider integration (this PR)
-
-- Introduces a separately built `plugins/ollama` workspace, with a plugin factory and no imports of host-specific BML/Aether code.
-- Uses Ollama's documented `POST /api/chat` streaming NDJSON protocol, including tool calls, reasoning, usage, and terminal status.
-- Maps common `temperature`, `topP`, and `maxTokens` to Ollama options. Passes provider-specific settings to Ollama after checking reserved/conflicting fields.
-- Rejects messages that cannot be accurately translated instead of silently flattening them.
-- Uses injected `fetch` to contract-test protocol behavior, fragmented UTF-8/JSON lines, HTTP failures, and no implicit retries without connecting to a real Ollama server.
-- Workspaces remain private/unpublished until versioning, publishing and package contract guarantees are reviewed.
-
-## Browser-neutral core and Node card catalog (this PR)
-
-- Replaces Node-only UUID import with Web Crypto in core, allowing the same execution contract to be used in browsers and Node 22.
-- Adds explicit single-directory model-card scanning through a separate `arcanai/node/cards` subpath. Browser consumers use `parseModelCard()` and their own asset loader.
-- Scanning ignores symlinks and unrelated files, validates each card, rejects duplicate IDs, and performs no plugin registration or installation.
-- Includes a declarative Ollama card example and tests for catalog behavior.
-
-## Transformers.js parity adapter
-
-- Adds an independent Transformers.js executor plugin with pipeline/direct-model runtime port, validated option translation, concurrency guard, cancellation, timing and token metrics.
-- Deterministic mock coverage for all six model identities from the BML Mara experiment set.
-- Provider/model initialization remains injected during the parity bridge. This is **not** proof of live six-model benchmark parity or a full independently loading Transformers.js plugin; see [parity plan](TRANSFORMERS-PARITY.md).
-
-## Owned Transformers.js runtime and typed content (PR #10)
-
-- Canonical execution cards accept validated `runtime` configuration and messages accept typed text/image parts.
-- `loadTransformersJsInstance()` loads pipeline, tokenizer/formatted direct-model, and Qwen3.5 processor/direct-model runtimes within the plugin and owns disposal.
-- Transformers.js plugin supports one image plus prompt through provider-owned preprocessing. Unsupported multimodal content is rejected, not flattened.
-- Existing injected runtime mode remains available for migration tests; BML will adopt the owned loader separately.
-- No arbitrary remote-image URL trust policy, multimodal multiple-image/video/audio protocol, or standalone Aether integration is claimed.
-
-## Not implemented yet
-
-Real provider adapters; timeout enforcement or heartbeat supervision; plugin lifecycle start/stop coordination; process supervision; concurrency limits; contract negotiation; provider option schemas/conflict validation; comprehensive sensitive-data redaction; host policy ceilings; file-based model card discovery; published packages; and BML migration.
-
-The architecture and contracts documents include proposed future interfaces. They are **not implemented guarantees**. Never enable verbose plugin logs with sensitive data in production: the current version does not redact arbitrary plugin-supplied diagnostic payloads.
+No implementation or hardware verification is implied by this document-only reconciliation.
