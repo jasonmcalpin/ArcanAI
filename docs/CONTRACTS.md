@@ -197,3 +197,8 @@ Plugin implementation, card identity, model-declared capabilities, and BML
 observations remain separate authorities. This addition does not promise
 automatic provider negotiation, universal model capability inference, or
 browser hardware acceptance.
+
+A configured `instance.limits.maxTokens` is an effective generation ceiling:
+if a card omits `maxTokens`, core explicitly passes the host ceiling to the
+provider rather than letting provider defaults silently determine usage.
+A request may narrow but never widen this bound.
