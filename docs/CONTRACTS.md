@@ -174,3 +174,26 @@ In browser contexts, the host imports/fetches its configured assets or manifests
 For migration from BML's legacy v3 cards, `readCardFilesSync({root,path})` returns undecorated JSON values and their paths; the BML host must validate the legacy shape and translate the execution portion to the canonical ArcanAI card. Do not treat arbitrary legacy JSON as validated canonical execution data.
 
 The Node loader rejects root traversal, selected-folder symlinks, and symlinked JSON files. An empty folder returns an empty inventory; requiring nonempty inventories is a host policy. This helper does not install dependencies or discover/register plugins.
+
+## Instance capability declarations and host execution limits (implemented)
+
+A registered instance may explicitly declare the adapter's supported
+`modalities` (currently text/image), `streaming` and `toolCalls`
+using `capabilities: { schemaVersion: "1", ... }`. This is **adapter support**,
+not proof that a selected model reliably performs the advertised feature.
+A request may supply `requiredCapabilities`; unknown or undeclared
+capabilities fail before invoking the provider.
+
+Host-owned `instance.limits` and narrower `request.limits` bound
+`maxTokens`, aggregate captured text/reasoning bytes, tool calls, and
+diagnostics. Card and request generation settings may not increase an
+instance-level token ceiling. Defaults cap cumulative text to 2 MiB,
+reasoning to 512 KiB, tool calls to 128, and diagnostic records to 256.
+These are **capture budgets**, not memory limits on provider-owned model
+weights or the host's own event consumer. Stream consumers should also
+bound their own retained event arrays.
+
+Plugin implementation, card identity, model-declared capabilities, and BML
+observations remain separate authorities. This addition does not promise
+automatic provider negotiation, universal model capability inference, or
+browser hardware acceptance.
