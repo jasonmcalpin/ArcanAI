@@ -7,8 +7,8 @@
     "node": ">=22"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json && npm run build --workspace=@arcanai/plugin-ollama && npm run build --workspace=@arcanai/plugin-transformersjs && npm run build --workspace=@arcanai/plugin-openai-compatible",
-    "test": "npm run build && node --test dist/test/*.test.js plugins/ollama/test/*.test.mjs plugins/openai-compatible/test/*.test.mjs plugins/transformersjs/test/*.test.mjs test/consumer-import.test.mjs",
+    "build": "tsc -p tsconfig.json && npm run build --workspace=@arcanai/plugin-ollama && npm run build --workspace=@arcanai/plugin-transformersjs && npm run build --workspace=@arcanai/plugin-openai-compatible && npm run build --workspace=@arcanai/plugin-openai",
+    "test": "npm run build && node --test dist/test/*.test.js plugins/ollama/test/*.test.mjs plugins/openai-compatible/test/*.test.mjs plugins/openai/test/*.test.mjs plugins/transformersjs/test/*.test.mjs test/consumer-import.test.mjs",
     "prepare": "npm run build",
     "smoke:node:transformers": "npm run build && node scripts/smoke-headless-transformers.mjs"
   },
@@ -40,6 +40,10 @@
     "./plugins/openai-compatible": {
       "types": "./plugins/openai-compatible/dist/index.d.ts",
       "default": "./plugins/openai-compatible/dist/index.js"
+    },
+    "./plugins/openai": {
+      "types": "./plugins/openai/dist/index.d.ts",
+      "default": "./plugins/openai/dist/index.js"
     }
   },
   "types": "./dist/src/index.d.ts",
@@ -47,6 +51,7 @@
     "dist/src/**",
     "plugins/transformersjs/dist/**",
     "plugins/ollama/dist/**",
-    "plugins/openai-compatible/dist/**"
+    "plugins/openai-compatible/dist/**",
+    "plugins/openai/dist/**"
   ]
 }
