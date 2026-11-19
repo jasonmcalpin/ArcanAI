@@ -1,5 +1,6 @@
 import { parseModelCard, validateOptions, validateProviderOptions } from "./cards.js";
 import { ExecutionTimeoutError, supervise, validateTimers } from "./supervision.js";
+import { executionLimits, requireCapabilities, enforceTokenLimit } from "./execution-policy.js";
 import type {
   DiagnosticEvent, DiagnosticLevel, ExecutionEvent, GenerateRequest, GenerateResult,
   GenerationOptions, JsonRecord, Message, PluginExecutionContext, PluginInstance,
@@ -66,6 +67,7 @@ export class ArcanAI {
         executionId, timestamp: new Date().toISOString(), level: severity, source, message,
         ...(data ? { data } : {})
       };
+      if (diagnostics.length >= 256) return; // Fixed default until instance limits resolve.
       diagnostics.push(event);
       try { request.onDiagnostic?.(event); } catch { /* observers cannot affect inference */ }
     };
@@ -85,6 +87,14 @@ export class ArcanAI {
         type: "failed", executionId,
         result: fail("unavailable", "PLUGIN_NOT_FOUND", `card ${card.id} requires registered plugin ${card.execution.plugin} at instance ${instanceId}`)
       };
+      return;
+    }
+
+    const limits = executionLimits(instance, request);
+    const capabilityFailure = requireCapabilities(instance, request);
+    if (capabilityFailure) {
+      yield { type: "failed", executionId,
+        result: fail("unavailable", "UNSUPPORTED_CAPABILITY", capabilityFailure) };
       return;
     }
 
@@ -138,6 +148,7 @@ export class ArcanAI {
         ...validateOptions(card.execution.options),
         ...validateOptions(request.options)
       };
+      enforceTokenLimit(options, limits);
       const providerOptions: JsonRecord = {
         ...validateProviderOptions(instance.defaults?.providerOptions),
         ...validateProviderOptions(card.execution.providerOptions),
@@ -159,6 +170,7 @@ export class ArcanAI {
       const parts: string[] = [];
       const reasoning: string[] = [];
       const calls: ToolCall[] = [];
+      let textBytes = 0, reasoningBytes = 0;
       let completion: Extract<PluginStreamEvent, { type: "completed" }> | undefined;
       for await (const observed of supervise(run, signal, timers)) {
         if (signal.aborted) break;
@@ -170,14 +182,22 @@ export class ArcanAI {
         if (completion) throw new Error("plugin emitted an event after completion");
         switch (part.type) {
           case "text-delta":
+            textBytes += new TextEncoder().encode(part.text).byteLength;
+            if (textBytes > limits.maxOutputBytes!) throw Object.assign(
+              new Error("Streamed text exceeds the host capture limit"), { code: "OUTPUT_LIMIT" });
             parts.push(part.text);
             yield { type: "text-delta", executionId, text: part.text };
             break;
           case "reasoning-delta":
+            reasoningBytes += new TextEncoder().encode(part.text).byteLength;
+            if (reasoningBytes > limits.maxReasoningBytes!) throw Object.assign(
+              new Error("Streamed reasoning exceeds the host capture limit"), { code: "REASONING_LIMIT" });
             reasoning.push(part.text);
             yield { type: "reasoning-delta", executionId, text: part.text };
             break;
           case "tool-call":
+            if (calls.length >= limits.maxToolCalls!) throw Object.assign(
+              new Error("Tool calls exceed the host capture limit"), { code: "TOOL_CALL_LIMIT" });
             calls.push(part.toolCall);
             yield { type: "tool-call", executionId, toolCall: part.toolCall };
             break;
