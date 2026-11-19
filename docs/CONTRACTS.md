@@ -1,34 +1,41 @@
 # ArcanAI public and plugin contracts
 
-**Status:** proposed contract shapes to guide implementation, **not implemented APIs or published npm packages**. Examples are illustrative. `ARCHITECTURE.md` defines responsibility boundaries; `DECISIONS.md` records confirmed vs unresolved choices.
+**Status:** A public v1.0 execution-card and plugin API are implemented, but this document also contains forward-looking contract sketches. Use `src/types.ts`, `src/core.ts`, `src/cards.ts`, and provider implementations for the current wire/API truth; see `IMPLEMENTATION-STATUS.md`. ArcanAI packages are not published.
 
 ## Public developer experience
 
 Use familiar OpenAI-style `messages` (`role` and `content`), Vercel-style provider separation and `providerOptions`, and typed output/events capable of richer Responses-style content. Do **not** claim full OpenAI API compatibility; adapters must preserve supported semantics and reject unsupported required features.
 
 ```ts
-const runtime = createArcanAI({
-  plugins: [
-    ollamaPlugin({ instance: "mini-server", endpoint: "http://localhost:11434" }),
-    ollamaPlugin({ instance: "mac-m4", endpoint: "http://mac:11434" })
-  ],
-  diagnostics: "off"
+import { createArcanAI, parseModelCard } from "arcanai";
+import { ollamaPlugin } from "arcanai/plugins/ollama";
+
+// Implemented API: registration is explicit and separate from card discovery.
+const runtime = createArcanAI("off");
+runtime.register({
+  id: "mac-ollama",
+  plugin: ollamaPlugin({ endpoint: "http://127.0.0.1:11434" })
 });
 
-const result = await runtime.generate({
-  card: "qwen3-8b", // or a validated card object
-  instance: "mini-server",
-  messages: [{ role: "user", content: "Hello" }],
-  options: { maxTokens: 512, temperature: 0.7 },
-  providerOptions: { num_ctx: 8192 }
+const card = parseModelCard({
+  schemaVersion: "1.0",
+  id: "local-chat",
+  execution: {
+    plugin: "@arcanai/plugin-ollama",
+    instance: "mac-ollama",
+    model: "qwen3:4b",
+    options: { maxTokens: 512 },
+    providerOptions: { num_ctx: 8192 }
+  }
 });
-
-for await (const event of runtime.stream({ card: "qwen3-8b", messages })) {
-  // output deltas, tool calls, completion, errors, optional diagnostics
+const messages = [{ role: "user" as const, content: "Hello" }];
+const result = await runtime.generate({ card, messages });
+for await (const event of runtime.stream({ card, messages })) {
+  // text/reasoning deltas, structured tool-call output and a terminal result
 }
 ```
 
-Exact names and implementation remain subject to API review; this section describes intended semantics.
+The code above matches the current public API. The chosen model and Ollama service must already be available; this is not a verified live-model smoke test.
 
 ## Canonical model execution cards
 
@@ -42,7 +49,6 @@ Illustrative structure:
   "id": "qwen3-8b",
   "execution": {
     "plugin": "@arcanai/plugin-ollama",
-    "pluginVersion": "^1.0.0",
     "instance": "mini-server",
     "model": "qwen3:8b",
     "options": { "temperature": 0.7, "maxTokens": 512 },
@@ -51,7 +57,7 @@ Illustrative structure:
 }
 ```
 
-The version and names here are examples, not published artifact promises. Implementations must define schema versioning, validation errors, migration policy and whether instance is required or may be selected at invocation. Existing BML cards and historical run artifacts should be migrated without rewriting old evidence in place.
+The published version contract is not finalized. The current runtime parses `schemaVersion: "1.0"` and accepts `execution.plugin`, `execution.model`, an optional instance, common options, provider options and optional `runtime`/`profile` JSON. The current `parseModelCard()` implementation does **not** enforce a `pluginVersion` compatibility field. The instance may be supplied in the request or card; the runtime still requires a matching explicitly registered instance. Existing BML cards and historical run artifacts should be migrated without rewriting old evidence in place.
 
 **Missing plugin behavior:** if the required plugin is not registered, return `status: "unavailable"` with code `PLUGIN_NOT_FOUND`, required package and card identifier. Do not install, suggest an executable installation workflow, upgrade, or auto-register a package. Host/developer handles it. Installed-but-unregistered remains unavailable.
 
@@ -68,6 +74,12 @@ The version and names here are examples, not published artifact promises. Implem
 Proposed precedence of eligible generation settings is plugin < instance < card < request; host ceilings/policy always win. Do not merge secrets into cards or diagnostics. Core validates common fields and passes provider-specific settings to the selected plugin for schema validation. Unsupported common features and duplicate/conflicting common/provider options must be reported explicitly rather than silently discarded. A model can be identified by card and/or explicit model request, with mismatch rules specified before implementation.
 
 Requested, resolved and *provider-confirmed* options must remain distinguishable in verbose diagnostics; forwarding a setting does not prove provider honored it.
+
+### Actual implementation versus deferred host policy
+
+Current core merges **instance defaults → card → request** for supported common options and JSON `providerOptions`; plugin defaults are provider-owned rather than a global core merge layer. `GenerateRequest` does not yet expose a fully enforced, non-overridable host ceiling contract. Provider adapters validate recognized protocol options, but forwarding an option is not proof that the provider honored it. Host policy, compatibility negotiation and feature declarations are future changes requiring tests and explicit API/version decisions.
+
+Node hosts use `readModelCards({ root, path })` from `arcanai/node/cards`; browser hosts supply card objects from their own asset-loading boundary. No global model directory is assumed.
 
 ## Plugin identity, registration and lifecycle
 
@@ -98,6 +110,8 @@ interface ModelPlugin {
 This is a **semantic sketch**; the final interface should use one canonical execution/event strategy rather than require plugin authors to implement separate code paths for streaming and non-streaming. Suggested canonical execution: async event stream; `generate()` collects it and `stream()` exposes it. Non-streaming providers can emit a completion event. Event transport and last-result ownership need precise typing/conformance tests.
 
 An instance is registered explicitly and may have independently owned resources. Registration must not contact providers. `start` initializes optional resources; `stop` drains/cancels in-flight requests according to host policy and releases owned resources. Startup/stop idempotence, concurrency and error behavior must be verified. No package scanning, activation from card content, or installation.
+
+**Current TypeScript interface:** `ModelPlugin` has an `id` and at least one of `stream(request, context)` or `execute(request, context)`, with optional `start()`/`stop()`; `ArcanAI.register({ id, plugin, defaults? })` accepts it without a manifest or automatic lifecycle activation. The following manifest-rich sketch is a **future capability/compatibility proposal**, not a currently required plugin shape. Explicit lifecycle negotiation and portable capability declarations are unimplemented.
 
 ## Execution result and event semantics
 
