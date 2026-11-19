@@ -72,3 +72,30 @@ CI exercises a deterministic CPU runtime using an injected Transformers
 SDK fixture; that is not evidence of real model inference on a Mac.
 Hardware qualification must be executed by the developer with a selected
 small-model card and the model cache/network policy configured externally.
+
+## Direct OpenAI Responses API
+
+Use `arcanai/plugins/openai` for the provider's **Responses API** rather
+than assuming an OpenAI-compatible Chat Completions endpoint has the same
+event or tool protocol. The host explicitly supplies a Platform API key;
+a ChatGPT consumer subscription is not API authorization.
+
+```ts
+import { createArcanAI, parseModelCard } from "arcanai";
+import { openAIResponsesPlugin } from "arcanai/plugins/openai";
+
+const arcanai = createArcanAI("off");
+arcanai.register({ id: "openai-api", plugin: openAIResponsesPlugin({
+  apiKey: process.env.OPENAI_API_KEY!
+}) });
+const card = parseModelCard({ schemaVersion: "1.0", id: "hosted",
+  execution: { plugin: "@arcanai/plugin-openai",
+    instance: "openai-api", model: "operator-selected-model" } });
+```
+
+This independent provider implements bounded **text-only** Responses SSE
+output, structured function-call output, usage, cancellation and explicit
+failure for unsupported inputs/options. It defaults to `store: false`.
+It does not execute tools or manage API billing. Actual API-key access,
+provider latency/model selection and hosted tool-mode conformance remain
+operator-configured runtime validation, not CI evidence.
