@@ -144,7 +144,14 @@ export function anthropicMessagesPlugin(config: AnthropicPluginConfig): ModelPlu
           if (block.type === "tool_use") {
             if (typeof block.id !== "string" || typeof block.name !== "string")
               throw new AnthropicPluginError("INVALID_RESPONSE", "Incomplete tool use block");
-            pending.set(event.index as number, { id: block.id, name: block.name, args: "" });
+            pending.set(event.index as number, {
+              id: block.id, name: block.name,
+              args: object(block.input) && Object.keys(block.input).length
+                ? JSON.stringify(block.input) : "",
+            });
+          } else if (!["text", "thinking", "redacted_thinking"].includes(String(block.type))) {
+            throw new AnthropicPluginError("UNSUPPORTED_CONTENT",
+              "Anthropic returned a content block unsupported by this adapter");
           }
         } else if (event.type === "content_block_delta" && object(event.delta)) {
           const delta = event.delta;
