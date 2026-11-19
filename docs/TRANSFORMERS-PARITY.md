@@ -1,6 +1,6 @@
 # Transformers.js parity adapter
 
-**Status:** initial plugin contract and deterministic mock tests. Real BML A/B runs must execute on the target machine.
+**Status:** the injected-runtime parity bridge and separately implemented provider-owned loader both exist. Deterministic mock tests are not real BML A/B or headless Node model-acceptance evidence; those remain hardware-specific verification work.
 
 `@arcanai/plugin-transformersjs` runs the same initialized Transformers.js model runtime as the existing BML executor through a narrow `TransformersModelRuntime` port. That is intentional for an attribution-quality comparison: the same weights, tokenizer, prompt renderer, generation options, stopping criteria, model cache, and device must be used on both paths.
 
