@@ -121,3 +121,43 @@ test("unsupported image capability is rejected without flattening images", async
   assert.equal(result.error.code, "UNSUPPORTED_CONTENT");
   await loadedRuntime.dispose();
 });
+
+test("headless Node CPU path uses card-owned runtime settings and disposes after inference", async () => {
+  let requestedDevice, called = false, disposed = false;
+  const sdk = {
+    InterruptableStoppingCriteria: Criteria,
+    TextStreamer: streamerConfig(),
+    async pipeline(_task, _model, options) {
+      requestedDevice = options.device;
+      const fn = async (_messages, generated) => {
+        called = true;
+        generated.streamer.settings.token_callback_function();
+        generated.streamer.settings.callback_function("CPU inference passed");
+      };
+      fn.tokenizer = { apply_chat_template() { return "rendered"; } };
+      fn.dispose = async () => { disposed = true; };
+      return fn;
+    }
+  };
+  const cpuCard = parseModelCard({
+    schemaVersion: "1.0", id: "cpu-only",
+    execution: {
+      plugin: "@arcanai/plugin-transformersjs", instance: "node-cpu",
+      model: "fixture/small-instruct", options: { maxTokens: 12 },
+      runtime: { kind: "pipeline", device: "cpu", revision: "fixture-v1", dtype: "q4" }
+    }
+  });
+  const loaded = await loadTransformersJsInstance(cpuCard, { sdk });
+  try {
+    const host = createArcanAI("off");
+    host.register({ id: "node-cpu", plugin: loaded.plugin });
+    const result = await host.generate({
+      card: cpuCard, messages: [{ role: "user", content: "Hello" }]
+    });
+    assert.equal(result.status, "success");
+    assert.equal(result.text, "CPU inference passed");
+    assert.equal(requestedDevice, "cpu");
+    assert.equal(called, true);
+  } finally { await loaded.dispose(); }
+  assert.equal(disposed, true);
+});
