@@ -20,6 +20,9 @@
 | D-012 | ArcanAI heartbeat means supervisor alive, not model progressing. | A quiet model may be working; honest observability. |
 | D-013 | Shared plugin contracts and replaceable modules; trusted explicit in-process plugins initially. | Modularity is independence of decisions, not speculative abstraction; interfaces alone are not a sandbox. |
 | D-014 | Provider plugins own model runtime loading, tokenizers, prompt preparation, multimodal preprocessing and inference. | The same model-card/plugin pair runs in BML and Aether; BML no longer maintains a second provider engine. |
+| D-015 | Headless Node model inference is the primary execution target for local developer workflows; browser/WebGPU remains an optional host. | ArcanAI stays browser-neutral at the core boundary, but BML/browser runtime acceptance is not a dependency for Mac-based Aether file/tool work. |
+| D-016 | Provider transport and execution environment are independent of model identity and capability evidence. | Embedded Transformers.js, Ollama, compatible local HTTP services and distinct hosted APIs should remain independent plugins; no vendor-specific switches in core. |
+| D-017 | Existing Ollama and owned Transformers.js runtime contracts are retained before adding providers. | Extend provider coverage without replacing the canonical v1.0 card or building a second inference engine inside BML/Aether. |
 
 ## Clarifications and rejected scope
 
@@ -29,19 +32,20 @@
 - No agent task engine, scheduled job store, marketplace or mandatory universal generic plugin API.
 - A model plugin may communicate with a service or execute a local runtime; don't equate adapter, model and engine.
 
-## Proposed details requiring implementation review
+## Implemented decisions and remaining design questions
 
-These reflect discussion and recommendations but **not finalized code-level decisions**:
+The code implements v1.0 cards, explicit named registration, a common async event stream with `generate()` collecting it, per-request heartbeat/idle/total supervision, host-selected Node card sources, a native Ollama provider and a Transformers.js provider-owned model loader. These no longer belong in a generic "unimplemented API" list. Check `IMPLEMENTATION-STATUS.md` for verification limits.
 
-1. The exact semver contract/versioning format, canonical card field names, BML migration mechanism, and whether arbitrary host-specific sibling metadata belongs in the same card file.
-2. A proposed configuration precedence (plugin defaults < instance defaults < card < request, with host policy authoritative) and conflict treatment.
-3. The exact TypeScript event interface, `AsyncIterable` vs callback transport, buffer/backpressure policy, and mapping of normalized terminal statuses to provider errors.
-4. Optional `start`/`stop` lifecycle hooks, declared concurrency policy and shutdown behavior.
-5. Connection/idle/total deadline defaults and whether idle timeout warns or cancels.
-6. The precise policy controlling verbose payload capture and redaction; event sinks and trace retention.
-7. Specific initial plugin packages and scope beyond model generation.
+The following decisions remain open at the implementation-contract level:
 
-These are interface design tasks, not reasons to add general-purpose subsystems before a concrete consumer requires them.
+1. Plugin capability and compatibility descriptions (declared support vs observed BML evidence); reject unsupported features rather than silently degrading.
+2. Immutable host-policy ceilings, aggregation limits for streamed text/reasoning/diagnostics, and comprehensive sanitization of provider errors and plugin logs.
+3. Cross-provider initialization/concurrency/stop/dispose protocol and safe failure recovery without assuming in-process plugins are isolated.
+4. Semver/release contracts, historical BML card migration, and real provider/model/device parity.
+5. Which HTTP services deserve an OpenAI-compatible adapter versus a vendor-specific provider plugin, with explicit feature and credential boundaries.
+6. Real Node CPU/WebGPU support and optional browser WebGPU acceptance per chosen model/revision/quantization/device. Buildability alone isn't proof of execution.
+
+No new automatic package installation, model downloads, retries, hosted orchestration, or SDK-owned tool execution are authorized by these questions.
 
 ## Review criteria for future changes
 

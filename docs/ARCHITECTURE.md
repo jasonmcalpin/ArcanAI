@@ -1,12 +1,48 @@
 # ArcanAI architecture
 
-**Status:** accepted design direction; not a claim of implemented functionality. See [contracts](CONTRACTS.md), [decisions](DECISIONS.md), and [README](../README.md).
+**Status:** accepted long-lived architecture. Some layers are implemented; check [implementation status](IMPLEMENTATION-STATUS.md) for source-backed capability boundaries. See [contracts](CONTRACTS.md), [decisions](DECISIONS.md), and [README](../README.md).
 
 ## Purpose
 
 ArcanAI is a host-independent TypeScript/JavaScript SDK for using model-execution plugins through stable, familiar interfaces. The host invokes models without depending on an individual provider protocol. Plugins translate structured requests and model settings to the actual runtime/service and normalize results. ArcanAI owns the **canonical execution portion of the model-card format** and its interpretation. BML and other hosts consume that same format and the same plugin implementations.
 
 ArcanAI does **not** orchestrate agents, execute host tools, persist or resume jobs, manage benchmarks, install or upgrade npm packages, manage model downloads, run external provider services, or diagnose every provider failure. Plugins may load model assets using their installed runtime and the operator's cache/network policy during explicit initialization. npm/Dependabot/project owners maintain dependencies; hosts (e.g. Aether) own jobs, retries, orchestration, recovery, and persistence. A missing plugin is a clear status/error, not an installation prompt.
+
+## Reconciled destination and execution priorities (November 2026)
+
+The primary near-term deployment is **headless Node on a developer's Mac**, with ArcanAI providing small-model inference through the owned Transformers.js runtime and local-server inference through Ollama. Aether remains responsible for filesystem tools and the coding-agent loop; Pantheon remains the optional controller. Node model execution must not require a browser, hosted worker, Docker, a SaaS control plane or remote model manager. Embedded inference is runtime- and hardware-dependent; a compatible CPU or WebGPU card is not a promise that arbitrary model weights run on a particular machine.
+
+Browser compatibility remains intentional **at the SDK boundary**: core model cards, invocation shapes, events and provider contracts must not depend on Node filesystem types. Browser WebGPU is an optional deployment for BML and web applications, not a prerequisite for local Aether. Node-specific card discovery stays in `arcanai/node/cards`; browser hosts supply their selected JSON assets. Every host chooses its card source, never a hard-coded `models/` or `testing/` directory.
+
+**Separately model the following:**
+
+| Concern | Owner or representation | Architectural consequence |
+| --- | --- | --- |
+| Host execution environment | Node / browser / other explicitly supported host | Plugin runtime compatibility varies without changing the core inference contract. |
+| Provider/transport | Embedded Transformers.js, native Ollama HTTP, future HTTP/hosted adapters | Each plugin owns wire formats, credentials, loading, cancellation translation and resource cleanup. |
+| Model identity | Canonical execution card plus provider and instance identity | Catalog identity is not a runtime availability or benchmark-quality claim. |
+| Capabilities | Adapter support, model declaration, independently observed evidence | A claimed tool/vision feature is not equivalent to BML qualification. Unsupported requirements fail, never silently degrade. |
+| Invocation policy | Host-owned limits, explicit options, credentials and network permissions | Card and request defaults must not override authority or budgets granted by the host. |
+
+An OpenAI-compatible HTTP service (potentially llama.cpp or LM Studio), and direct OpenAI/Anthropic/Gemini APIs, are **future plugin targets**, not currently shipped providers. Compatibility must be established per endpoint and feature. A consumer app subscription is not a substitute for API authorization; browser API clients must not embed provider secrets. Provider-specific choices belong in plugins and validated configuration, never provider-name branches in core.
+
+The overarching invariant is **one inference invocation, replaceable provider implementation, one canonical execution-card meaning** across Aether, BML and other hosts. Multi-turn agent control, host tool execution and completion decisions remain outside ArcanAI.
+
+## Architectural delivery order
+
+1. Validate and harden existing contracts: instance lifecycle and cancellation, capability declarations, host limits, aggregate output/diagnostic budgets and browser-neutral packaging.
+2. Qualify small Transformers.js models running headless under Node on macOS, with reproducible model/revision/device settings and explicit cleanup; keep Ollama acceptance as a separate service integration.
+3. Add an OpenAI-compatible HTTP plugin for compatible local servers, then provider-specific hosted API plugins. Each gets conformance coverage for streaming, errors, tool-call output, cancellation, usage and unsupported modalities.
+4. Replace BML's own inference engines with shared provider plugins only after real paired-parity testing, while preserving historical benchmark results; verify Aether and BML consume the same ArcanAI card semantics.
+5. Independently validate browser/WebGPU only when a browser consumer needs it. Do not make Node/Aether wait for browser-specific acceptance.
+
+### Refactoring assessment
+
+**Retain:** the canonical `src/cards.ts` and `src/types.ts`, the `src/core.ts` registration and `generate()/stream()` contract, the separate Ollama and Transformers.js plugin workspaces, and the Node-only card-catalog subpath.
+
+**Extend within existing owners:** provider capabilities/compatibility checks, bounded output and diagnostics, operational lifecycle and explicit host ceilings. Current core collects streaming text/reasoning and diagnostic arrays; treat collection bounds as an identified gap, not a previously implemented guarantee.
+
+**Refactor when extending:** split execution-supervision or capability logic only when concrete provider additions force incompatible responsibilities into core. Never replace a working plugin abstraction with speculative generic providers or a second orchestration engine.
 
 ## Vocabulary
 
@@ -43,7 +79,7 @@ Host (BML / Aether / other)
     v
 ArcanAI SDK
     | validate card/request; resolve explicit instance;
-    | merge options; enforce host limits; dispatch;
+    | merge eligible options; host ceilings not yet fully enforced; dispatch;
     | emit status/progress/diagnostic events
     v
 Plugin instance (e.g., Ollama, OpenAI, llama.cpp, Transformers)
@@ -88,7 +124,7 @@ One underlying execution path supplies a convenience `generate()` result and eve
 
 The core supervises deadlines, cancellation and observable status. Plugins emit true provider progress/output where available. Heartbeats report supervisor liveness only. An event-loop freeze cannot be detected by a heartbeat running on the same blocked event loop; hard process/hang detection requires out-of-process supervision and is not promised by this library.
 
-Errors are normalized into a small terminal status vocabulary plus source/code/message and redacted raw provider details in verbose diagnostics. No automatic upgrade checks, compatibility probing on every request, hidden retries, background health polling, or broad attempt to classify provider failures.
+Errors are normalized into a small terminal status vocabulary plus source/code/message. Comprehensive redaction of arbitrary plugin diagnostic payloads is not implemented or verified; do not enable sensitive payload capture in production. No automatic upgrade checks, compatibility probing on every request, hidden retries, background health polling, or broad attempt to classify provider failures.
 
 ## Boundaries for future extension
 

@@ -5,7 +5,7 @@ ArcanAI core accepts validated model-card objects and is intentionally free of N
 ```ts
 import { readModelCards } from "arcanai/node/cards";
 
-const entries = await readModelCards("./models");
+const entries = await readModelCards({ root: projectRoot, path: "models" });
 for (const { path, card } of entries) {
   console.log(path, card.id, card.execution.plugin, card.execution.model);
 }
