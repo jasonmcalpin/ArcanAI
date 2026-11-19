@@ -70,3 +70,23 @@ test("duplicate registrations are rejected", () => {
   runtime.register({ id: "mac", plugin });
   assert.throws(() => runtime.register({ id: "mac", plugin }), /duplicate/);
 });
+
+test("instance maxTokens is an effective ceiling even when card and request omit it", async () => {
+  let observed: number | undefined;
+  const sdk = createArcanAI("off");
+  sdk.register({ id: "mac", limits: { maxTokens: 77 }, plugin: {
+    id: "test/echo", async execute(req) {
+      observed = req.options.maxTokens;
+      return { text: "bounded" };
+    }
+  } });
+  const noBudgetCard = parseModelCard({ schemaVersion: "1.0", id: "no-budget",
+    execution: { plugin: "test/echo", instance: "mac", model: "local" } });
+  const result = await sdk.generate({ card: noBudgetCard, messages: [] });
+  assert.equal(result.status, "success");
+  assert.equal(observed, 77);
+  const tightened = await sdk.generate({ card: noBudgetCard, messages: [],
+    limits: { maxTokens: 31 } });
+  assert.equal(tightened.status, "success");
+  assert.equal(observed, 31);
+});
